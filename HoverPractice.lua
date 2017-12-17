@@ -2,6 +2,9 @@
 -- Draw constants
 --]=]
 CANVAS_HEIGHT = 256
+CANVAS_WIDTH = CANVAS_HEIGHT * 2
+AXIS_HEIGHT = CANVAS_HEIGHT / 2
+CANVAS_PAD = 3
 MAX_BAR = 40 -- max bar size drawn
 BAR_THICC = 4 -- thickness of bars, affected by zoom
 BAR_PAD = 2 -- distance between bars, affected by zoom
@@ -26,12 +29,8 @@ function race()
 end
 
 function initScript()
-	drawSpace = gui.createcanvas(CANVAS_HEIGHT * 2, CANVAS_HEIGHT)
+	drawSpace = gui.createcanvas(CANVAS_WIDTH + (2 * CANVAS_PAD), CANVAS_HEIGHT + (2 * CANVAS_PAD))
 	drawSpace.Clear(0xFF000000)
-
-	client.SetClientExtraPadding(0, 20, 0, 20)
-	client.displaymessages(true)
-
 end
 
 --[=[
@@ -50,8 +49,89 @@ current_streak = 0
 previous_good_streak = 0
 best_streak = 0
 
+--[=[
+-- Object for each hover "press"
+-- idk what to call it
+--]=]
+Boot = { up = 0, down = 0 }
+
+function Boot:pressed()
+	self.up = self.up + 1
+end
+
+function Boot:offed()
+	self.down = self.down + 1
+end
+
+function Boot:new(o)
+	o = o or {}   -- create object if user does not provide one
+	setmetatable(o, self)
+	self.__index = self
+	return o
+end
+
+--[=[
+-- Tracks boots actions
+--]=]
+boots_list = { Boot:new() }
+
+function boots_list.shift_and_add()
+	for i = MOST_BARS, 2, -1 do
+		boots_list[i] = boots_list[i-1]
+	end
+	boots_list[1] = Boot:new()
+end
+
+-- End of hover objects
+
+--[=[
+-- Draws the canvas
+--]=]
+function drawData()
+	drawSpace.DrawLine(0, AXIS_HEIGHT, CANVAS_WIDTH, AXIS_HEIGHT, WHITE)
+	for i = 1, MOST_BARS do
+		local b = boots_list[i]
+		if (b) then
+			local x = CANVAS_WIDTH - (i * ( ZOOM * (BAR_THICC + BAR_PAD) ))
+			local h_up = b.up * ZOOM
+			local h_down = b.down * ZOOM
+			if (h_up > 0) then
+				if (h_up > MAX_BAR) then
+					h_up = MAX_BAR
+				end
+				drawSpace.DrawRectangle(x, AXIS_HEIGHT - 1 - h_up, BAR_THICC, h_up, GREEN, GREEN)
+			end
+			if (h_down > 0) then
+				if (h_down > MAX_BAR) then
+					h_down = MAX_BAR
+				end
+				drawSpace.DrawRectangle(x, AXIS_HEIGHT + 1, BAR_THICC, h_down, RED, RED)
+			end
+		end
+	end
+end
+
+--[=[
+-- Controls objects used to track hover success
+--]=]
 function pollHover(held)
-	drawSpace.DrawLine(0, CANVAS_HEIGHT / 2, CANVAS_HEIGHT * 2, CANVAS_HEIGHT / 2, WHITE)
+	held = held or false
+	local b = boots_list[1]
+
+	if (held == true) then
+		if (a_held == true and b) then
+			b:pressed()
+		else
+			boots_list.shift_and_add()
+			boots_list[1]:pressed()
+		end
+	elseif (b) then -- hmmmm
+		b:offed()
+	end
+
+	a_held = held
+
+	drawData()
 end
 
 function mainLoop()
