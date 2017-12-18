@@ -1,31 +1,42 @@
 --[=[
 -- Draw constants
 --]=]
+-- Canvas
 CANVAS_HEIGHT = 256
 CANVAS_WIDTH = CANVAS_HEIGHT * 2
 AXIS_HEIGHT = CANVAS_HEIGHT / 2
-CANVAS_PAD = 3
+
+-- Bars
 ZOOM = 2 -- resize of bar
 MAX_BAR = ZOOM * 40 -- max bar size drawn
 BAR_THICC = ZOOM * 4-- thickness of bars
 BAR_PAD = ZOOM * 1 -- distance between bars
 MOST_BARS = 25 -- max number of bars drawn
+
+-- Text
+STATS_X = 50
+STATS_DIFF = 15
+STATS_Y = CANVAS_HEIGHT / 2 + 15
+STREAK_Y = STATS_Y + (STATS_DIFF * 2)
+BEST_Y = STATS_Y + (STATS_DIFF * 3)
+GOOD_Y = STATS_Y + (STATS_DIFF * 4)
+
+-- Colors
 RED = 0xFFFF0000
 GREEN = 0xFF00FF00
 WHITE = 0xFFFFFFFF
 
 --[=[
--- checks
---]=]
-HP_ADDRESS = 0x04DB
-STATE_HP = 0
-
---[=[
 -- Hovering constants
 --]=]
 MAX_HOLD = 30 -- frames A can be held for before failing
+MAX_HOLD_HEIGHT = AXIS_HEIGHT - 1 - MAX_HOLD * ZOOM
 MAX_RELEASE = 1 -- frames A can be released for before failing
 GOOD_STREAK = 10 -- minimum length of a streak considered good
+
+-- checks
+HP_ADDRESS = 0x04DB
+STATE_HP = 0 -- done later
 
 --[=[
 -- Hover tracking
@@ -67,12 +78,13 @@ function initScript()
 	loadHoverState()
 	memory.usememorydomain("WRAM")
 	STATE_HP = readHP() -- load the HP you should have in the save state
-	drawSpace = gui.createcanvas(CANVAS_WIDTH + (2 * CANVAS_PAD), CANVAS_HEIGHT + (2 * CANVAS_PAD))
+	drawSpace = gui.createcanvas(CANVAS_WIDTH, CANVAS_HEIGHT)
+	drawSpace.SetTitle("Hover practice")
 	drawSpace.Clear(0xFF000000)
 end
 
 function loadHoverState()
-	savestate.load(".\\HoverPractice.State")
+	savestate.load("./HoverPractice.State")
 end
 
 --[=[
@@ -126,6 +138,7 @@ end
 function drawData()
 	drawSpace.Clear(0xFF000000)
 	drawSpace.DrawLine(0, AXIS_HEIGHT, CANVAS_WIDTH, AXIS_HEIGHT, WHITE)
+	drawSpace.DrawLine(0, MAX_HOLD_HEIGHT, CANVAS_WIDTH, MAX_HOLD_HEIGHT, RED)
 
 	for i = 1, MOST_BARS do
 		local b = boots_list[i]
@@ -152,9 +165,9 @@ function drawData()
 		end
 	end
 
-	drawSpace.DrawText(100, AXIS_HEIGHT + 30, "Streak: " .. current_streak, WHITE)
-	drawSpace.DrawText(100, AXIS_HEIGHT + 45, "Best: " .. best_streak, WHITE)
-	drawSpace.DrawText(100, AXIS_HEIGHT + 60, "Previous good: " .. previous_good_streak, WHITE)
+	drawSpace.DrawText(STATS_X, STREAK_Y, "Streak: " .. current_streak, WHITE)
+	drawSpace.DrawText(STATS_X, BEST_Y, "Best: " .. best_streak, WHITE)
+	drawSpace.DrawText(STATS_X, GOOD_Y, "Previous good: " .. previous_good_streak, WHITE)
 end
 
 --[=[
@@ -213,6 +226,7 @@ function did_he_fall()
 end
 
 function endPractice()
+	drawSpace.Dispose()
 	print(
 			"Hover Practice script terminated\n"..
 			CONSOLE_SEP
