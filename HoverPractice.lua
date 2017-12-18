@@ -50,6 +50,7 @@ best_streak = 0
 --[=[
 -- meta stuff
 --]=]
+RUNNING = false
 CONSOLE_SEP = "----------------------------------\n"
 ACCEPTED_ROM_HASHES = {
 	"D487184ADE4C7FBE65C1F7657107763E912019D4"
@@ -74,13 +75,18 @@ function readHP()
 	return memory.read_u8(HP_ADDRESS)
 end
 
+RUNNING = true
 function initScript()
+	RUNNING = true
 	loadHoverState()
 	memory.usememorydomain("WRAM")
 	STATE_HP = readHP() -- load the HP you should have in the save state
+
 	drawSpace = gui.createcanvas(CANVAS_WIDTH, CANVAS_HEIGHT)
 	drawSpace.SetTitle("Hover practice")
 	drawSpace.Clear(0xFF000000)
+	drawSpace.set_TopMost(true)
+	drawSpace.add_FormClosing(endPractice)
 end
 
 function loadHoverState()
@@ -130,7 +136,9 @@ function boots_list.shift_and_add()
 	boots_list[1] = boot.new()
 end
 
+--[======================[
 -- End of hover objects
+--]======================]
 
 --[=[
 -- Draws the canvas
@@ -226,6 +234,7 @@ function did_he_fall()
 end
 
 function endPractice()
+	RUNNING = false
 	drawSpace.Dispose()
 	print(
 			"Hover Practice script terminated\n"..
@@ -235,11 +244,11 @@ end
 
 function mainLoop()
 	print(
-			CONSOLE_SEP..
+			string.gsub(CONSOLE_SEP, "%-", "=")..
 			"Hover practice started\n"..
 			"Press L+R to terminate\n"
 		)
-	while true do
+	while RUNNING do
 		emu.frameadvance()
 		pad = joypad.get(1)
 		pollHover(pad.A)
@@ -248,12 +257,11 @@ function mainLoop()
 			did_he_fall()
 		end
 
+		drawSpace.Refresh()
+
 		if (pad.L and pad.R) then -- L+R to quit
 			endPractice()
-			break
 		end
-
-		drawSpace.Refresh()
 	end
 end
 
