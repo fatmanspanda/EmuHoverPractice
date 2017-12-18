@@ -8,30 +8,17 @@ CANVAS_PAD = 3
 ZOOM = 2 -- resize of bar
 MAX_BAR = ZOOM * 40 -- max bar size drawn
 BAR_THICC = ZOOM * 4-- thickness of bars
-BAR_PAD = ZOOM * 1-- distance between bars
-MOST_BARS = 20 -- max number of bars drawn
+BAR_PAD = ZOOM * 1 -- distance between bars
+MOST_BARS = 25 -- max number of bars drawn
 RED = 0xFFFF0000
 GREEN = 0xFF00FF00
 WHITE = 0xFFFFFFFF
 
 --[=[
--- This section was shamelessly borrowed from Raekuul
--- https://github.com/raekuul/Z3-Lua-Hud-BizHawk/blob/master/Z3-Rando-Hud-BizHawk.lua
+-- checks
 --]=]
-
-function race()
-	q = memory.read_u8(0x00FFC3, "System Bus")
-	if (q == 0x54) then
-		return true
-	else
-		return false
-	end
-end
-
-function initScript()
-	drawSpace = gui.createcanvas(CANVAS_WIDTH + (2 * CANVAS_PAD), CANVAS_HEIGHT + (2 * CANVAS_PAD))
-	drawSpace.Clear(0xFF000000)
-end
+HP_ADDRESS = 0x04DB
+STATE_HP = 0
 
 --[=[
 -- Hovering constants
@@ -48,6 +35,45 @@ current_time = 0
 current_streak = 0
 previous_good_streak = 0
 best_streak = 0
+
+--[=[
+-- meta stuff
+--]=]
+CONSOLE_SEP = "----------------------------------\n"
+ACCEPTED_ROM_HASHES = {
+	"D487184ADE4C7FBE65C1F7657107763E912019D4"
+}
+
+-- compare hash to know practice hack hashes
+function verifyPracticeHack()
+	local ret = false
+	local h = gameinfo.getromhash()
+
+	for _, v in ipairs(ACCEPTED_ROM_HASHES) do
+		if (h == v) then
+			ret = true
+			break
+		end
+	end
+
+	return ret
+end
+
+function readHP()
+	return memory.read_u8(HP_ADDRESS)
+end
+
+function initScript()
+	loadHoverState()
+	memory.usememorydomain("WRAM")
+	STATE_HP = readHP() -- load the HP you should have in the save state
+	drawSpace = gui.createcanvas(CANVAS_WIDTH + (2 * CANVAS_PAD), CANVAS_HEIGHT + (2 * CANVAS_PAD))
+	drawSpace.Clear(0xFF000000)
+end
+
+function loadHoverState()
+	savestate.load(".\\HoverPractice.State")
+end
 
 --[=[
 -- Object for each hover "press"
@@ -179,21 +205,62 @@ function pollHover(held)
 	drawData()
 end
 
+function did_he_fall()
+	local hp = readHP()
+	if (hp ~= STATE_HP) then
+		loadHoverState()
+	end
+end
+
+function endPractice()
+	print(
+			"Hover Practice script terminated\n"..
+			CONSOLE_SEP
+		)
+end
+
 function mainLoop()
+	print(
+			CONSOLE_SEP..
+			"Hover practice started\n"..
+			"Press L+R to terminate\n"
+		)
 	while true do
 		emu.frameadvance()
 		pad = joypad.get(1)
 		pollHover(pad.A)
+
+		if (emu.framecount() % 20 == 0) then -- let's not overwork the emulator with memory checks
+			did_he_fall()
+		end
+
+		if (pad.L and pad.R) then -- L+R to quit
+			endPractice()
+			break
+		end
+
 		drawSpace.Refresh()
 	end
 end
 
-if not race() then
+
+if verifyPracticeHack() then
 	initScript()
 	mainLoop()
 else
-	print("")
-	print("Detected a race rom.") 
-	print("This probably isn't allowed during races.")
-	print("Did you create a race rom by mistake?")
+	print(
+			CONSOLE_SEP..
+			"-- Unwilling to run Hover Practice\n"..
+			CONSOLE_SEP..
+			"This is not the LTTP NMG practice hack\n"..
+			"Please download this hack from https://milde.no/lttp/\n"..
+			"\n"..
+			"If you are indeed running the practice hack, please open an issue at:\n"..
+			"https://github.com/fatmanspanda/EmuHoverPractice/issues\n"..
+			"\n"..
+			"This script is not expected to work on beta versions of the hack.\n"..
+			"Hash:\n"..
+			gameinfo.getromhash()..
+			CONSOLE_SEP
+		)
 end
