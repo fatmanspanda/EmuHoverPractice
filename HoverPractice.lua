@@ -1,8 +1,10 @@
 local __HOVER_VERSION = "1.0"
 
---[=[
--- constants
---]=]
+-- TODO:
+-- check if we're on a menu when starting
+-- disable OOB mode on start (variable ram address... add key to accepted rom table [make nested]?)
+-- prevent going to trinexx? or just kill script when going to trinexx? look at room probably
+
 -- canvas
 local CANVAS_HEIGHT = 256
 local CANVAS_WIDTH = CANVAS_HEIGHT * 2
