@@ -22,21 +22,21 @@ local BEST_Y = STATS_Y + (STATS_DIFF * 3)
 local GOOD_Y = STATS_Y + (STATS_DIFF * 4)
 
 -- Colors
-local RED = 0xFFFF0000
-local GREEN = 0xFF00FF00
-local WHITE = 0xFFFFFFFF
+local RED = 0xAAC80000
+local GREEN = 0xAA20C828
+local WHITE = 0xFFF8F8F8
 
 --[=[
 -- Hovering constants
 --]=]
 local MAX_HOLD = 30 -- frames A can be held for before failing
-local MAX_HOLD_HEIGHT = AXIS_HEIGHT - 1 - MAX_HOLD * ZOOM
+local MAX_HOLD_HEIGHT = AXIS_HEIGHT - MAX_HOLD * ZOOM -- bar for max hold time
 local MAX_RELEASE = 1 -- frames A can be released for before failing
 local GOOD_STREAK = 10 -- minimum length of a streak considered good
 
 -- Checks
 local HP_ADDRESS = 0xF36D
-local STATE_HP = 0x60 -- filled later
+local STATE_HP = 0x60 -- filled later; default 120
 
 --[=[
 -- Hover tracking
@@ -73,7 +73,7 @@ end
 
 -- loads a save state
 local function loadHoverState()
-	-- face down
+	-- Face down
 	memory.writebyte(0x002F, 0x02)
 
 	-- Horizontal position stuff
@@ -98,15 +98,55 @@ local function loadHoverState()
 
 	-- advance one frame
 	emu.frameadvance()
+
 	-- Reset HP
 	memory.writebyte(HP_ADDRESS, STATE_HP)
-	--savestate.load("./HoverPractice.State")
 end
 
--- brings you to correct location
+-- brings you to correct location by navigating the menu
 local function go_to_tr()
-	print("\tmemory.write_u16_be(0x0022,"..memory.read_u16_be(0xF366)..")")
+	gui.addmessage("This is your captain speaking.")
+	gui.addmessage("Please sit back while we navigate to our destination")
+
+	-- menu cursor vram addresses and target values for trinexx preset
+	local menu_cursors = {
+		{ addr = 0x0648, target = 0 },
+		{ addr = 0x064A, target = 22 },
+		{ addr = 0x064C, target = 24 }
+	}
+
+	for _, v in ipairs(menu_cursors) do
+		memory.writebyte(v.addr, 4) -- filled with random value to not be target
+	end
+
+	-- controller location
+	local c = 1
+	joypad.set( { R = true, Start = true }, c ) -- open hack menu
+
+	-- wait function
+	local function waitFrames(w)
+		for i=0, w do
+			emu.frameadvance()
+		end
+	end
+
+	waitFrames(40) -- wait for menu to open
+	for _, v in ipairs(menu_cursors) do -- for each menu
+		memory.writebyte(v.addr, v.target) -- set cursor location
+		
+		waitFrames(3)
+		joypad.set( { A = true }, c ) -- press A
+	end
+
+	joypad.set( { A = true }, c ) -- press A
+
+	gui.addmessage("Ready for take off...")
+	waitFrames(220) -- more waiting
 	memory.write_u16_be(0xF360, 0x0000) -- set rupees to 0
+
+	gui.addmessage("This is your captain speaking.")
+	gui.addmessage("We have arrived safely.")
+	gui.addmessage("You may assume control.")
 end
 
 -- reads hp from WRAM
@@ -131,9 +171,9 @@ local function initScript()
 	RUNNING = true
 	memory.usememorydomain("WRAM")
 
-	go_to_tr()
-	loadHoverState()
+	go_to_tr() -- we're off to see the wizard
 	STATE_HP = readHP() -- load the HP you should have in the save state
+	loadHoverState()
 
 	drawSpace = gui.createcanvas(CANVAS_WIDTH, CANVAS_HEIGHT)
 	drawSpace.SetTitle("Hover practice")
@@ -210,7 +250,7 @@ local function drawData()
 				if (h_up_draw > MAX_BAR) then
 					h_up_draw = MAX_BAR
 				end
-				local color = (h_up <= MAX_HOLD) and GREEN or RED
+				local color = (h_up < MAX_HOLD) and GREEN or RED
 				drawSpace.DrawRectangle(x, AXIS_HEIGHT - 1 - h_up_draw, BAR_THICC * ZOOM, h_up_draw, color, color)
 			end
 			if (h_down >= 0) then
@@ -268,9 +308,14 @@ local function pollHover(held)
 	if (reset_streak) then
 		if (current_streak >= GOOD_STREAK) then
 			previous_good_streak = current_streak
+
+			-- prizes
 			local r = memory.read_u16_le(0xF360)
-			memory.write_u16_le(0xF360, r + current_streak)
+			local earned = (current_streak - (current_streak % 10)) / 10 -- pls give me Lua 5.3 for int division
+			memory.write_u16_le(0xF360, r + earned)
+			gui.addmessage("Earned " .. earned .. " rupee" .. (earned ~= 1 and "s" or ""))
 		end
+
 		current_streak = 0
 	end
 
@@ -283,7 +328,7 @@ local function did_he_fall()
 	local hp = readHP()
 	if (hp ~= STATE_HP) then
 		loadHoverState()
-		gui.text(0, 0, "OUCH!")
+		gui.addmessage("OUCH!")
 	end
 end
 

@@ -1,15 +1,15 @@
 Emulator Lua script for BizHawk to practice hovering. Based off of [Hyphen-ated's tool of the same purpose](https://github.com/Hyphen-ated/HoverPractice); with help from [raekuul](https://github.com/raekuul) and myramong.
 
 ## Using this tool
-This script will only run itself on a recognized version of the [NMG practice hack](https://milde.no/lttp/). On starting, it will look in the directory of the script for `HoverPractice.State`.
+This script will only run itself on a recognized version of the [NMG practice hack](https://milde.no/lttp/). On starting, it will attempt to use the practice menu to teleport to Turtle Rock.
 
-* `HoverPractice.State` is a save state that will position you outside of Trinexx's room, on the bottom-most pixel of the platform, facing south.
 * The final area before Trinexx is an ideal place to practice hovering, as it contains a long vertical gap to attempt crossing.
 * If you fall (or really, take any damage) while this script is running, it will immediately load the save state.
 * The script will also create a new window that contains a graphical analysis of your hovering technique.
    * The bars above the axis indicate how long you held the `A` button.
    * The bars below the axis indicate how long you released the `A` button.
    * If either action lasted longer than what is allowed for a successful hover, its bar will turn from green to red.
+* As a fun bonus, you will earn rupees for successful hover streaks, at a rate of 1:10.
 * To terminate this script without navigating to the Lua console, press `L+R` together in game.
 
 ## Running Lua scripts
