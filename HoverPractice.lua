@@ -125,23 +125,21 @@ local function go_to_tr()
 
 	-- wait function
 	local function waitFrames(w)
-		for i=0, w do
-			emu.frameadvance()
-		end
+		for i=0,w do emu.frameadvance() end
 	end
 
 	waitFrames(40) -- wait for menu to open
+
 	for _, v in ipairs(menu_cursors) do -- for each menu
 		memory.writebyte(v.addr, v.target) -- set cursor location
-		
 		waitFrames(3)
-		joypad.set( { A = true }, c ) -- press A
+		joypad.set( { A = true }, c ) -- select next menu
 	end
 
 	joypad.set( { A = true }, c ) -- press A
 
 	gui.addmessage("Ready for take off...")
-	waitFrames(220) -- more waiting
+	waitFrames(220) -- wait for area to load
 	memory.write_u16_be(0xF360, 0x0000) -- set rupees to 0
 
 	gui.addmessage("This is your captain speaking.")
@@ -149,9 +147,12 @@ local function go_to_tr()
 	gui.addmessage("You may assume control.")
 end
 
--- reads hp from WRAM
 local function readHP()
 	return memory.read_u8(HP_ADDRESS)
+end
+
+local function endPractice()
+	RUNNING = false
 end
 
 local function endPracticeMessage()
@@ -160,11 +161,7 @@ local function endPracticeMessage()
 			"Hover Practice script terminated\n"..
 			CONSOLE_SEP
 		)
-end
-
-local function endPractice()
-	RUNNING = false
-	endPracticeMessage()
+	endPractice()
 end
 
 local function initScript()
@@ -214,9 +211,7 @@ function boot.new()
 	return self
 end
 
---[=[
 -- Tracks boots actions
---]=]
 boots_list = {}
 
 function boots_list.shift_and_add()
