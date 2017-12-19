@@ -2,62 +2,62 @@
 -- Draw constants
 --]=]
 -- Canvas
-CANVAS_HEIGHT = 256
-CANVAS_WIDTH = CANVAS_HEIGHT * 2
-AXIS_HEIGHT = CANVAS_HEIGHT / 2
+local CANVAS_HEIGHT = 256
+local CANVAS_WIDTH = CANVAS_HEIGHT * 2
+local AXIS_HEIGHT = CANVAS_HEIGHT / 2
 
 -- Bars
-ZOOM = 2 -- resize of bar
-MAX_BAR = ZOOM * 40 -- max bar size drawn
-BAR_THICC = ZOOM * 4-- thickness of bars
-BAR_PAD = ZOOM * 1 -- distance between bars
-MOST_BARS = 25 -- max number of bars drawn
+local ZOOM = 2 -- resize of bar
+local MAX_BAR = ZOOM * 40 -- max bar size drawn
+local BAR_THICC = ZOOM * 4-- thickness of bars
+local BAR_PAD = ZOOM * 1 -- distance between bars
+local MOST_BARS = 25 -- max number of bars drawn
 
 -- Text
-STATS_X = 50
-STATS_DIFF = 15
-STATS_Y = CANVAS_HEIGHT / 2 + 15
-STREAK_Y = STATS_Y + (STATS_DIFF * 2)
-BEST_Y = STATS_Y + (STATS_DIFF * 3)
-GOOD_Y = STATS_Y + (STATS_DIFF * 4)
+local STATS_X = 50
+local STATS_DIFF = 15
+local STATS_Y = CANVAS_HEIGHT / 2 + 15
+local STREAK_Y = STATS_Y + (STATS_DIFF * 2)
+local BEST_Y = STATS_Y + (STATS_DIFF * 3)
+local GOOD_Y = STATS_Y + (STATS_DIFF * 4)
 
 -- Colors
-RED = 0xFFFF0000
-GREEN = 0xFF00FF00
-WHITE = 0xFFFFFFFF
+local RED = 0xFFFF0000
+local GREEN = 0xFF00FF00
+local WHITE = 0xFFFFFFFF
 
 --[=[
 -- Hovering constants
 --]=]
-MAX_HOLD = 30 -- frames A can be held for before failing
-MAX_HOLD_HEIGHT = AXIS_HEIGHT - 1 - MAX_HOLD * ZOOM
-MAX_RELEASE = 1 -- frames A can be released for before failing
-GOOD_STREAK = 10 -- minimum length of a streak considered good
+local MAX_HOLD = 30 -- frames A can be held for before failing
+local MAX_HOLD_HEIGHT = AXIS_HEIGHT - 1 - MAX_HOLD * ZOOM
+local MAX_RELEASE = 1 -- frames A can be released for before failing
+local GOOD_STREAK = 10 -- minimum length of a streak considered good
 
--- checks
-HP_ADDRESS = 0x04DB
-STATE_HP = 0 -- done later
+-- Checks
+local HP_ADDRESS = 0xF36D
+local STATE_HP = 0x60 -- filled later
 
 --[=[
 -- Hover tracking
 --]=]
-a_held = false
-current_time = 0
-current_streak = 0
-previous_good_streak = 0
-best_streak = 0
+local a_held = false
+local current_time = 0
+local current_streak = 0
+local previous_good_streak = 0
+local best_streak = 0
 
 --[=[
 -- meta stuff
 --]=]
-RUNNING = false
-CONSOLE_SEP = "----------------------------------\n"
-ACCEPTED_ROM_HASHES = {
+local RUNNING = false
+local CONSOLE_SEP = "----------------------------------\n"
+local ACCEPTED_ROM_HASHES = {
 	"D487184ADE4C7FBE65C1F7657107763E912019D4"
 }
 
 -- compare hash to know practice hack hashes
-function verifyPracticeHack()
+local function verifyPracticeHack()
 	local ret = false
 	local h = gameinfo.getromhash()
 
@@ -71,15 +71,68 @@ function verifyPracticeHack()
 	return ret
 end
 
-function readHP()
+-- loads a save state
+local function loadHoverState()
+	-- face down
+	memory.writebyte(0x002F, 0x02)
+
+	-- Horizontal position stuff
+	memory.write_u16_be(0x0022, 0x7808)
+	memory.write_u16_be(0x00E2, 0x0008)
+	memory.write_u16_be(0x061C, 0x7F00)
+	memory.write_u16_be(0x061E, 0x8100)
+
+	-- Vertical position stuff
+	memory.write_u16_be(0x0020, 0x4F16)
+	memory.write_u16_be(0x00E8, 0x0016)
+	memory.write_u16_be(0x0618, 0x7800)
+	memory.write_u16_be(0x061A, 0x7A00)
+
+	-- Set link to not falling
+	memory.writebyte(0x005B, 0x00)
+	memory.writebyte(0x005D, 0x00)
+	memory.writebyte(0x005E, 0x00)
+
+	-- Stop slashing
+	memory.writebyte(0x0372, 0x00)
+
+	-- advance one frame
+	emu.frameadvance()
+	-- Reset HP
+	memory.writebyte(HP_ADDRESS, STATE_HP)
+	--savestate.load("./HoverPractice.State")
+end
+
+-- brings you to correct location
+local function go_to_tr()
+	print("\tmemory.write_u16_be(0x0022,"..memory.read_u16_be(0xF366)..")")
+	memory.write_u16_be(0xF360, 0x0000) -- set rupees to 0
+end
+
+-- reads hp from WRAM
+local function readHP()
 	return memory.read_u8(HP_ADDRESS)
 end
 
-RUNNING = true
-function initScript()
+local function endPracticeMessage()
+	drawSpace.Dispose()
+	print(
+			"Hover Practice script terminated\n"..
+			CONSOLE_SEP
+		)
+end
+
+local function endPractice()
+	RUNNING = false
+	endPracticeMessage()
+end
+
+local function initScript()
 	RUNNING = true
-	loadHoverState()
 	memory.usememorydomain("WRAM")
+
+	go_to_tr()
+	loadHoverState()
 	STATE_HP = readHP() -- load the HP you should have in the save state
 
 	drawSpace = gui.createcanvas(CANVAS_WIDTH, CANVAS_HEIGHT)
@@ -87,10 +140,8 @@ function initScript()
 	drawSpace.Clear(0xFF000000)
 	drawSpace.set_TopMost(true)
 	drawSpace.add_FormClosing(endPractice)
-end
 
-function loadHoverState()
-	savestate.load("./HoverPractice.State")
+	event.onexit(endPracticeMessage)
 end
 
 --[=[
@@ -143,7 +194,7 @@ end
 --[=[
 -- Draws the canvas
 --]=]
-function drawData()
+local function drawData()
 	drawSpace.Clear(0xFF000000)
 	drawSpace.DrawLine(0, AXIS_HEIGHT, CANVAS_WIDTH, AXIS_HEIGHT, WHITE)
 	drawSpace.DrawLine(0, MAX_HOLD_HEIGHT, CANVAS_WIDTH, MAX_HOLD_HEIGHT, RED)
@@ -181,7 +232,7 @@ end
 --[=[
 -- Controls objects used to track hover success
 --]=]
-function pollHover(held)
+local function pollHover(held)
 	held = held or false
 	local b = boots_list[1]
 	local reset_streak = false
@@ -217,6 +268,8 @@ function pollHover(held)
 	if (reset_streak) then
 		if (current_streak >= GOOD_STREAK) then
 			previous_good_streak = current_streak
+			local r = memory.read_u16_le(0xF360)
+			memory.write_u16_le(0xF360, r + current_streak)
 		end
 		current_streak = 0
 	end
@@ -226,23 +279,15 @@ function pollHover(held)
 	drawData()
 end
 
-function did_he_fall()
+local function did_he_fall()
 	local hp = readHP()
 	if (hp ~= STATE_HP) then
 		loadHoverState()
+		gui.text(0, 0, "OUCH!")
 	end
 end
 
-function endPractice()
-	RUNNING = false
-	drawSpace.Dispose()
-	print(
-			"Hover Practice script terminated\n"..
-			CONSOLE_SEP
-		)
-end
-
-function mainLoop()
+local function mainLoop()
 	print(
 			string.gsub(CONSOLE_SEP, "%-", "=")..
 			"Hover practice started\n"..
@@ -264,7 +309,6 @@ function mainLoop()
 		end
 	end
 end
-
 
 if verifyPracticeHack() then
 	initScript()
