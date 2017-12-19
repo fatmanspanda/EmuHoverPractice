@@ -1,21 +1,21 @@
 local __HOVER_VERSION = "1.0"
 
 --[=[
--- Constants
+-- constants
 --]=]
--- Canvas
+-- canvas
 local CANVAS_HEIGHT = 256
 local CANVAS_WIDTH = CANVAS_HEIGHT * 2
 local AXIS_HEIGHT = CANVAS_HEIGHT / 2
 
--- Bars
+-- bars
 local ZOOM = 2 -- resize of bar
 local MAX_BAR = ZOOM * 40 -- max bar size drawn
 local BAR_THICC = ZOOM * 4-- thickness of bars
 local BAR_PAD = ZOOM * 1 -- distance between bars
 local MOST_BARS = 25 -- max number of bars drawn
 
--- Text
+-- text
 local STATS_X = 50
 local STATS_DIFF = 15
 local STATS_Y = CANVAS_HEIGHT / 2 + 15
@@ -23,18 +23,19 @@ local STREAK_Y = STATS_Y + (STATS_DIFF * 2)
 local BEST_Y = STATS_Y + (STATS_DIFF * 3)
 local GOOD_Y = STATS_Y + (STATS_DIFF * 4)
 
--- Colors
+-- colors
 local RED = 0xAAC80000
 local GREEN = 0xAA20C828
 local WHITE = 0xFFF8F8F8
 local BLACK = 0xFF000000
 
--- Hovering
+-- hovering
 local MAX_HOLD = 30 -- frames A can be held for before failing
 local MAX_RELEASE = 1 -- frames A can be released for before failing
 local GOOD_STREAK = 10 -- minimum length of a streak considered good
 local MAX_HOLD_HEIGHT = AXIS_HEIGHT - MAX_HOLD * ZOOM -- axis for max hold time
--- Checks
+
+-- checks
 local HP_ADDR = 0xF36D
 local Y_POS_ADDR = 0x0020
 local STATUS_ADDR = 0x005B
@@ -44,14 +45,14 @@ local RUPEE_ADDR = 0xF360
 local STATE_Y_POS = 0x164F
 local STATE_HP = 0x60 -- redefined later
 
--- Meta stuff
+-- meta stuff
 local CONSOLE_SEP = "----------------------------------\n"
 local ACCEPTED_ROM_HASHES = {
-	"D487184ADE4C7FBE65C1F7657107763E912019D4"
-}
+		"D487184ADE4C7FBE65C1F7657107763E912019D4"
+	}
 
 --[=[
--- Hover tracking
+-- hover tracking
 --]=]
 local running = false
 local a_held = false
@@ -59,9 +60,9 @@ local current_time = 0
 local current_streak = 0
 local previous_good_streak = 0
 local best_streak = 0
-local ballsy_streak = 0 -- your streak while above a pit
+local ballsy_streak = 0 -- your streak while over a pit
 
--- compare hash to know practice hack hashes
+-- compare hash to known practice hack hashes
 local function verify_practice_rom()
 	local h = gameinfo.getromhash()
 
@@ -70,63 +71,57 @@ local function verify_practice_rom()
 	end
 
 	return false
-end
+end -- verify_practice_rom
 
--- loads a save state
+-- resets position and status
 local function load_hover_position()
-	-- Face down
-	memory.writebyte(0x002F, 0x02)
+	memory.writebyte(0x002F, 0x02) -- face down
 
 	-- horizontal stuff
 	memory.write_u16_le(0x0022, 0x0878) -- position
-	-- camera
-	memory.write_u16_le(0x00E2, 0x0800)
-	memory.write_u16_le(0x061C, 0x007F)
-	memory.write_u16_le(0x061E, 0x0081)
+	memory.write_u16_le(0x00E2, 0x0800) -- camera
+	memory.write_u16_le(0x061C, 0x007F) -- camera
+	memory.write_u16_le(0x061E, 0x0081) -- camera
 
-	--verticalstuff
+	--vertical stuff
 	memory.write_u16_le(Y_POS_ADDR, STATE_Y_POS) -- position
-	-- camera
-	memory.write_u16_le(0x00E8, 0x1600)
-	memory.write_u16_le(0x0618, 0x0078)
-	memory.write_u16_le(0x061A, 0x007A)
+	memory.write_u16_le(0x00E8, 0x1600) -- camera
+	memory.write_u16_le(0x0618, 0x0078) -- camera
+	memory.write_u16_le(0x061A, 0x007A) -- camera
 
-	-- Set link to not falling
+	-- set link to not falling
 	memory.writebyte(STATUS_ADDR, 0x00)
 	memory.writebyte(0x005D, 0x00)
 	memory.writebyte(0x005E, 0x00)
 
-	-- Stop slashing
-	memory.writebyte(0x0372, 0x00)
-
-	-- Reset HP
-	memory.writebyte(HP_ADDR, STATE_HP)
-end
+	memory.writebyte(0x0372, 0x00) -- stop slashing
+	memory.writebyte(HP_ADDR, STATE_HP) -- reset HP
+end -- load_hover_position
 
 -- brings you to correct location by navigating the menu
 local function go_to_tr()
-	gui.addmessage("This is your captain speaking.")
-	gui.addmessage("Please sit back while we navigate to our destination")
+	gui.addmessage("This is your captain speaking:")
+	gui.addmessage("Please sit back while we navigate to our destination.")
 
 	-- menu cursor vram addresses and target values for trinexx preset
 	local menu_cursors = {
-		{ addr = 0x0648, target = 0 },
-		{ addr = 0x064A, target = 22 },
-		{ addr = 0x064C, target = 24 }
-	}
-
-	local c = 1 -- controller id
-	joypad.set( { R = true, Start = true }, c ) -- open hack menu
+			{ addr = 0x0648, target = 0 },
+			{ addr = 0x064A, target = 22 },
+			{ addr = 0x064C, target = 24 }
+		}
 
 	local function wait_some_frames(w)
 		for i = 0, w do emu.frameadvance() end
 	end
 
+	local c = 1 -- controller id
+
+	joypad.set({ R = true, Start = true }, c) -- open hack menu
 	wait_some_frames(40) -- wait for menu to open
 
 	for _, v in ipairs(menu_cursors) do -- for each menu
-		memory.writebyte(v.addr, v.target) -- set cursor location
-		wait_some_frames(3)
+		memory.writebyte(v.addr, v.target) -- set cursor location to desired option
+		wait_some_frames(3) -- just in case
 		joypad.set( { A = true }, c ) -- select next menu
 	end
 
@@ -137,52 +132,56 @@ local function go_to_tr()
 
 	memory.write_u16_be(RUPEE_ADDR, 0x0000) -- set rupees to 0
 
-	gui.addmessage("This is your captain speaking.")
+	gui.addmessage("This is your captain speaking:")
 	gui.addmessage("We have arrived safely.")
 	gui.addmessage("You may assume control.")
-end
+end -- go_to_tr
 
 local function read_hp()
 	return memory.readbyte(HP_ADDR)
-end
+end -- read_hp
 
 local function read_y_pos()
 	return memory.readbyte(LOCATION_ADDRESS)
-end
+end -- read_y_pos
 
 local function stop_running()
 	running = false
-end
+end -- stop_running
 
 local function end_practice()
 	the_canvas.Dispose()
 	print(
-			"Hover Practice script terminated\n" ..
+			"Hover Practice script terminated.\n" ..
 			CONSOLE_SEP
 		)
 	stop_running()
-end
+end -- end practice
 
 local function initialize()
 	running = true
-	memory.usememorydomain("WRAM")
 
+	memory.usememorydomain("WRAM") -- everything we need is in V(W)RAM
 	go_to_tr() -- we're off to see the wizard
-	STATE_HP = read_hp() -- load the HP you should have in the save state
+	STATE_HP = read_hp() -- load the HP you should have in the preset
 	load_hover_position()
 
 	the_canvas = gui.createcanvas(CANVAS_WIDTH, CANVAS_HEIGHT)
-	the_canvas.SetTitle("Hover practice v" .. __HOVER_VERSION)
-	the_canvas.Clear(BLACK)
 	the_canvas.set_TopMost(true)
+	the_canvas.SetTitle("Hover practice v" .. __HOVER_VERSION)
 	the_canvas.add_FormClosing(stop_running)
 
 	event.onexit(end_practice)
-end
+
+	print(
+			string.gsub(CONSOLE_SEP, "%-", "=") ..
+			"Hover practice started\n" ..
+			"Press L+R to terminate\n"
+		)
+end -- initialize
 
 --[=[
--- Object for each hover "press"
--- idk what to call it
+-- object for each hover "press"
 --]=]
 boot = {}
 
@@ -204,9 +203,9 @@ function boot.new()
 	function self.down() return down end
 
 	return self
-end
+end -- boot.new
 
--- Tracks boots actions
+-- tracks boots actions
 boots_list = {}
 
 function boots_list.shift_and_add()
@@ -215,14 +214,10 @@ function boots_list.shift_and_add()
 	end
 
 	boots_list[1] = boot.new()
-end
-
---[======================[
--- End of hover objects
---]======================]
+end -- shift_and_add
 
 --[=[
--- Draws the canvas
+-- draws the canvas
 --]=]
 local function draw_data()
 	the_canvas.Clear(BLACK)
@@ -230,7 +225,7 @@ local function draw_data()
 	the_canvas.DrawLine(0, MAX_HOLD_HEIGHT, CANVAS_WIDTH, MAX_HOLD_HEIGHT, RED)
 
 	for i = 1, MOST_BARS do
-		local test = boots_list[i]
+		local b_test = boots_list[i]
 
 		if b_test then
 			local x = CANVAS_WIDTH - (i * ( ZOOM * (BAR_THICC + BAR_PAD) ))
@@ -246,7 +241,7 @@ local function draw_data()
 
 				local color = (h_up < MAX_HOLD) and GREEN or RED
 				the_canvas.DrawRectangle(x, AXIS_HEIGHT - 1 - h_up_draw, BAR_THICC * ZOOM, h_up_draw, color, color)
-			end -- end hold bar
+			end -- hold bar
 
 			if h_down >= 0 then
 				local h_down_draw = h_down * ZOOM
@@ -257,24 +252,24 @@ local function draw_data()
 
 				local color = (h_down <= MAX_RELEASE) and GREEN or RED
 				the_canvas.DrawRectangle(x, AXIS_HEIGHT + 1, BAR_THICC * ZOOM, h_down_draw, color, color)
-			end -- end release bar
-		end -- end bar check
-	end -- end bar loop
+			end -- release bar
+		end -- bar check
+	end -- bar loop
 
 	the_canvas.DrawText(STATS_X, STREAK_Y, "Streak: " .. current_streak, WHITE)
 	the_canvas.DrawText(STATS_X, BEST_Y, "Best: " .. best_streak, WHITE)
 	the_canvas.DrawText(STATS_X, GOOD_Y, "Previous good: " .. previous_good_streak, WHITE)
-end
+end -- draw_data
 
 -- checks to see if Link's status is set to default
 local function in_control()
 	return memory.readbyte(STATUS_ADDR) == 0x00
-end
+end -- in_control
 
 -- checks if we've gone farther than the default position and are controllable to decide rupee eligibility
 local function is_eligible()
 	return memory.read_u16_le(Y_POS_ADDR) > STATE_Y_POS and in_control()
-end
+end -- is_eligible
 
 -- reset streaks to 0 and award rupees
 local function reset_streak()
@@ -297,7 +292,7 @@ local function reset_streak()
 						earned = earned + ballsy_streak / 5
 					end
 				end
-			end
+			end -- big boy streak tests
 
 			earned = math.floor(earned) -- kill decimals
 
@@ -306,15 +301,15 @@ local function reset_streak()
 
 			memory.write_u16_le(RUPEE_ADDR, r)
 			gui.addmessage("Earned " .. earned .. " rupees")
-		end -- end ballsy check
-	end -- end good streak check
+		end -- ballsy check
+	end -- good streak check
 
 	current_streak = 0
 	ballsy_streak = 0
-end
+end -- reset_streak
 
 --[=[
--- Controls objects used to track hover success
+-- controls objects used to track hover success
 --]=]
 local function analyze_hover(held)
 	held = held or false
@@ -324,6 +319,7 @@ local function analyze_hover(held)
 		if a_held and b_test then
 			b_test.pressed()
 			current_time = current_time + 1
+
 			if current_time > MAX_HOLD then
 				reset_streak()
 			end
@@ -341,23 +337,25 @@ local function analyze_hover(held)
 			current_time = 1
 			boots_list.shift_and_add()
 			boots_list[1].pressed()
-		end
-	elseif b_test then -- hmmmm
+		end -- a_held test
+	elseif b_test then
 		b_test.offed()
+
 		if a_held then
 			current_time = -1
 		else
 			current_time = current_time - 1
+
 			if current_time < -1 then
 				reset_streak()
 			end
-		end
-	end
+		end -- a_held test
+	end -- held / b_test check
 
 	a_held = held
 
 	draw_data()
-end
+end -- analyze_hover
 
 local function did_he_fall()
 	local hp = read_hp()
@@ -373,17 +371,11 @@ local function did_he_fall()
 			gui.addmessage("OUCH! Lost 2 rupees")
 		else
 			gui.addmessage("OUCH!")
-		end
-	end
-end
+		end -- lost
+	end -- hp check
+end -- did_he_fall
 
 local function do_main()
-	print(
-			string.gsub(CONSOLE_SEP, "%-", "=") ..
-			"Hover practice started\n" ..
-			"Press L+R to terminate\n"
-		)
-
 	while running do
 		emu.frameadvance()
 		pad = joypad.get(1)
@@ -398,8 +390,8 @@ local function do_main()
 		if pad.L and pad.R then -- L+R to quit
 			stop_running()
 		end
-	end -- end running loop
-end
+	end -- running loop
+end -- do_main
 
 if verify_practice_rom() then
 	initialize()
@@ -407,7 +399,7 @@ if verify_practice_rom() then
 else
 	print(
 			CONSOLE_SEP..
-			"-- Unwilling to run Hover Practice\n" ..
+			"Unwilling to run Hover Practice\n" ..
 			CONSOLE_SEP ..
 			"This is not the LTTP NMG practice hack\n" ..
 			"Please download this hack from https://milde.no/lttp/\n" ..
