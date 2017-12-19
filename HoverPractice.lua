@@ -1,3 +1,4 @@
+
 --[=[
 -- Draw constants
 --]=]
@@ -25,82 +26,77 @@ local GOOD_Y = STATS_Y + (STATS_DIFF * 4)
 local RED = 0xAAC80000
 local GREEN = 0xAA20C828
 local WHITE = 0xFFF8F8F8
+local BLACK = 0xFF000000
 
---[=[
--- Hovering constants
---]=]
+-- Hovering
 local MAX_HOLD = 30 -- frames A can be held for before failing
 local MAX_HOLD_HEIGHT = AXIS_HEIGHT - MAX_HOLD * ZOOM -- bar for max hold time
 local MAX_RELEASE = 1 -- frames A can be released for before failing
 local GOOD_STREAK = 10 -- minimum length of a streak considered good
 
 -- Checks
-local HP_ADDRESS = 0xF36D
-local STATE_HP = 0x60 -- filled later; default 120
+local HP_ADDR = 0xF36D
+local STATE_HP = 0x60 -- filled later; default
+local Y_POS_ADDR = 0x0020
+local STATE_Y_POS = 0x164F -- filled later
+local STATUS_ADDR = 0x005B
+local RUPEE_ADDR = 0xF360
 
---[=[
--- Hover tracking
---]=]
-local a_held = false
-local current_time = 0
-local current_streak = 0
-local previous_good_streak = 0
-local best_streak = 0
-
---[=[
--- meta stuff
---]=]
-local RUNNING = false
+-- Meta stuff
 local CONSOLE_SEP = "----------------------------------\n"
 local ACCEPTED_ROM_HASHES = {
 	"D487184ADE4C7FBE65C1F7657107763E912019D4"
 }
 
+--[=[
+-- Hover tracking
+--]=]
+local running = false
+local a_held = false
+local current_time = 0
+local current_streak = 0
+local previous_good_streak = 0
+local best_streak = 0
+local ballsy_streak = 0 -- your streak while above a pit
+
 -- compare hash to know practice hack hashes
-local function verifyPracticeHack()
-	local ret = false
+local function verify_practice_rom()=
 	local h = gameinfo.getromhash()
 
 	for _, v in ipairs(ACCEPTED_ROM_HASHES) do
-		if (h == v) then
-			ret = true
-			break
-		end
+		if (h == v) then return true end
 	end
 
-	return ret
+	return false
 end
 
 -- loads a save state
-local function loadHoverState()
+local function load_hover_position()
 	-- Face down
 	memory.writebyte(0x002F, 0x02)
 
 	-- Horizontal position stuff
-	memory.write_u16_be(0x0022, 0x7808)
-	memory.write_u16_be(0x00E2, 0x0008)
-	memory.write_u16_be(0x061C, 0x7F00)
-	memory.write_u16_be(0x061E, 0x8100)
+	memory.write_u16_le(0x0022, 0x0878)
+	memory.write_u16_le(0x00E2, 0x0800)
+	memory.write_u16_le(0x061C, 0x007F)
+	memory.write_u16_le(0x061E, 0x0081)
 
 	-- Vertical position stuff
-	memory.write_u16_be(0x0020, 0x4F16)
-	memory.write_u16_be(0x00E8, 0x0016)
-	memory.write_u16_be(0x0618, 0x7800)
-	memory.write_u16_be(0x061A, 0x7A00)
+	memory.write_u16_le(Y_POS_ADDR, STATE_Y_POS)
+	memory.write_u16_le(0x00E8, 0x1600)
+	memory.write_u16_le(0x0618, 0x0078)
+	memory.write_u16_le(0x061A, 0x007A)
 
 	-- Set link to not falling
-	memory.writebyte(0x005B, 0x00)
+	memory.writebyte(STATUS_ADDR, 0x00)
 	memory.writebyte(0x005D, 0x00)
 	memory.writebyte(0x005E, 0x00)
 
 	-- Stop slashing
 	memory.writebyte(0x0372, 0x00)
 
-	-- advance one frame
-	emu.frameadvance()
-
 	-- Reset HP
-	memory.writebyte(HP_ADDRESS, STATE_HP)
+	memory.writebyte(HP_ADDR, STATE_HP)
 end
 
 -- brings you to correct location by navigating the menu
@@ -115,70 +111,69 @@ local function go_to_tr()
 		{ addr = 0x064C, target = 24 }
 	}
 
-	for _, v in ipairs(menu_cursors) do
-		memory.writebyte(v.addr, 4) -- filled with random value to not be target
-	end
-
-	-- controller location
-	local c = 1
+	local c = 1 -- controller id
 	joypad.set( { R = true, Start = true }, c ) -- open hack menu
 
-	-- wait function
-	local function waitFrames(w)
-		for i=0,w do emu.frameadvance() end
+	local function wait_some_frames(w)
+		for i = 0, w do emu.frameadvance() end
 	end
 
-	waitFrames(40) -- wait for menu to open
+	wait_some_frames(40) -- wait for menu to open
 
 	for _, v in ipairs(menu_cursors) do -- for each menu
 		memory.writebyte(v.addr, v.target) -- set cursor location
-		waitFrames(3)
+		wait_some_frames(3)
 		joypad.set( { A = true }, c ) -- select next menu
 	end
 
 	joypad.set( { A = true }, c ) -- press A
 
 	gui.addmessage("Ready for take off...")
-	waitFrames(220) -- wait for area to load
-	memory.write_u16_be(0xF360, 0x0000) -- set rupees to 0
+	wait_some_frames(220) -- wait for area to load
+
+	memory.write_u16_be(RUPEE_ADDR, 0x0000) -- set rupees to 0
 
 	gui.addmessage("This is your captain speaking.")
 	gui.addmessage("We have arrived safely.")
 	gui.addmessage("You may assume control.")
 end
 
-local function readHP()
-	return memory.read_u8(HP_ADDRESS)
+local function read_hp()
+	return memory.readbyte(HP_ADDR)
 end
 
-local function endPractice()
-	RUNNING = false
+local function read_y_pos()
+	return memory.readbyte(LOCATION_ADDRESS)
 end
 
-local function endPracticeMessage()
-	drawSpace.Dispose()
+local function stop_running()
+	running = false
+end
+
+local function end_practice()
+	the_canvas.Dispose()
 	print(
 			"Hover Practice script terminated\n"..
 			CONSOLE_SEP
 		)
-	endPractice()
+	stop_running()
 end
 
-local function initScript()
-	RUNNING = true
+local function initialize()
+	running = true
 	memory.usememorydomain("WRAM")
 
 	go_to_tr() -- we're off to see the wizard
-	STATE_HP = readHP() -- load the HP you should have in the save state
-	loadHoverState()
+	STATE_HP = read_hp() -- load the HP you should have in the save state
+	load_hover_position()
 
-	drawSpace = gui.createcanvas(CANVAS_WIDTH, CANVAS_HEIGHT)
-	drawSpace.SetTitle("Hover practice")
-	drawSpace.Clear(0xFF000000)
-	drawSpace.set_TopMost(true)
-	drawSpace.add_FormClosing(endPractice)
+	the_canvas = gui.createcanvas(CANVAS_WIDTH, CANVAS_HEIGHT)
+	the_canvas.SetTitle("Hover practice")
+	the_canvas.Clear(BLACK)
+	the_canvas.set_TopMost(true)
+	the_canvas.add_FormClosing(stop_running)
 
-	event.onexit(endPracticeMessage)
+	event.onexit(end_practice)
 end
 
 --[=[
@@ -229,58 +224,116 @@ end
 --[=[
 -- Draws the canvas
 --]=]
-local function drawData()
-	drawSpace.Clear(0xFF000000)
-	drawSpace.DrawLine(0, AXIS_HEIGHT, CANVAS_WIDTH, AXIS_HEIGHT, WHITE)
-	drawSpace.DrawLine(0, MAX_HOLD_HEIGHT, CANVAS_WIDTH, MAX_HOLD_HEIGHT, RED)
+local function draw_data()
+	the_canvas.Clear(BLACK)
+	the_canvas.DrawLine(0, AXIS_HEIGHT, CANVAS_WIDTH, AXIS_HEIGHT, WHITE)
+	the_canvas.DrawLine(0, MAX_HOLD_HEIGHT, CANVAS_WIDTH, MAX_HOLD_HEIGHT, RED)
 
 	for i = 1, MOST_BARS do
-		local b = boots_list[i]
-		if (b) then
+		local test = boots_list[i]
+		if b_test then
 			local x = CANVAS_WIDTH - (i * ( ZOOM * (BAR_THICC + BAR_PAD) ))
-			local h_up = b.up()
-			local h_down = b.down()
+			local h_up = b_test.up()
+			local h_down = b_test.down()
+
 			if (h_up >= 0) then
 				local h_up_draw = h_up * ZOOM
+
 				if (h_up_draw > MAX_BAR) then
 					h_up_draw = MAX_BAR
 				end
+
 				local color = (h_up < MAX_HOLD) and GREEN or RED
-				drawSpace.DrawRectangle(x, AXIS_HEIGHT - 1 - h_up_draw, BAR_THICC * ZOOM, h_up_draw, color, color)
+				the_canvas.DrawRectangle(x, AXIS_HEIGHT - 1 - h_up_draw, BAR_THICC * ZOOM, h_up_draw, color, color)
 			end
 			if (h_down >= 0) then
 				local h_down_draw = h_down * ZOOM
+
 				if (h_down_draw > MAX_BAR) then
 					h_down_draw = MAX_BAR
 				end
+
 				local color = (h_down <= MAX_RELEASE) and GREEN or RED
-				drawSpace.DrawRectangle(x, AXIS_HEIGHT + 1, BAR_THICC * ZOOM, h_down_draw, color, color)
+				the_canvas.DrawRectangle(x, AXIS_HEIGHT + 1, BAR_THICC * ZOOM, h_down_draw, color, color)
 			end
 		end
 	end
 
-	drawSpace.DrawText(STATS_X, STREAK_Y, "Streak: " .. current_streak, WHITE)
-	drawSpace.DrawText(STATS_X, BEST_Y, "Best: " .. best_streak, WHITE)
-	drawSpace.DrawText(STATS_X, GOOD_Y, "Previous good: " .. previous_good_streak, WHITE)
+	the_canvas.DrawText(STATS_X, STREAK_Y, "Streak: " .. current_streak, WHITE)
+	the_canvas.DrawText(STATS_X, BEST_Y, "Best: " .. best_streak, WHITE)
+	the_canvas.DrawText(STATS_X, GOOD_Y, "Previous good: " .. previous_good_streak, WHITE)
+end
+
+-- checks to see if Link's status is set to default
+local function in_control()
+	return memory.readbyte(STATUS_ADDR) == 0x00
+end
+
+-- checks if we've gone farther than the default position and are controllable to decide rupee eligibility
+local function eligible()
+	return memory.read_u16_le(Y_POS_ADDR) > STATE_Y_POS and in_control()
+end
+
+-- reset streaks to 0 and award rupees
+local function reset_streak()
+	if (current_streak >= GOOD_STREAK) then
+		previous_good_streak = current_streak
+
+		if ballsy_streak > 0 then
+			-- prizes
+			local r = memory.read_u16_le(RUPEE_ADDR)
+			local earned = 1 -- start with 1 rupee for a good hover, just to avoid having to check for plurals
+			earned = earned + (ballsy_streak + 5) / 10 -- +5 to round up
+
+			-- nested because they are cumulative bonuses
+			if ballsy_streak > 40 then -- more bonus for a really good hover
+				earned = earned + ballsy_streak / 9
+
+				if ballsy_streak > 160 then -- more bonus for a great hover
+					earned = earned + ballsy_streak / 8
+
+					if ballsy_streak > 420 then -- more bonus for a god hover
+						earned = earned + ballsy_streak / 5
+					end
+				end
+			end
+
+			earned = math.floor(earned) -- kill decimals
+
+			r = r + earned
+			if (r > 999) then -- don't go above max rupees
+				r = 999
+			end
+
+			memory.write_u16_le(RUPEE_ADDR, r )
+			gui.addmessage("Earned " .. earned .. " rupees")
+		end
+	end
+
+	current_streak = 0
+	ballsy_streak = 0
 end
 
 --[=[
 -- Controls objects used to track hover success
 --]=]
-local function pollHover(held)
+local function analyze_hover(held)
 	held = held or false
 	local b = boots_list[1]
-	local reset_streak = false
 
 	if (held == true) then
 		if (a_held and b) then
 			b.pressed()
 			current_time = current_time + 1
 			if (current_time > MAX_HOLD) then
-				reset_streak = true
+				reset_streak()
 			end
 		else
 			current_streak = current_streak + 1
+
+			if eligible() then
+				ballsy_streak = ballsy_streak + 1
+			end
 			if (current_streak > best_streak) then
 				best_streak = current_streak
 			end
@@ -290,69 +343,65 @@ local function pollHover(held)
 		end
 	elseif (b) then -- hmmmm
 		b.offed()
-		if (a_held) then
+		if a_held then
 			current_time = -1
 		else
 			current_time = current_time - 1
 			if (current_time < -1) then
-				reset_streak = true
+				reset_streak()
 			end
 		end
 	end
 
-	if (reset_streak) then
-		if (current_streak >= GOOD_STREAK) then
-			previous_good_streak = current_streak
-
-			-- prizes
-			local r = memory.read_u16_le(0xF360)
-			local earned = (current_streak - (current_streak % 10)) / 10 -- pls give me Lua 5.3 for int division
-			memory.write_u16_le(0xF360, r + earned)
-			gui.addmessage("Earned " .. earned .. " rupee" .. (earned ~= 1 and "s" or ""))
-		end
-
-		current_streak = 0
-	end
-
 	a_held = held
 
-	drawData()
+	draw_data()
 end
 
 local function did_he_fall()
-	local hp = readHP()
-	if (hp ~= STATE_HP) then
-		loadHoverState()
-		gui.addmessage("OUCH!")
+	local hp = read_hp()
+	if (hp ~= STATE_HP and in_control) then
+		load_hover_position()
+		local r = memory.read_u16_le(RUPEE_ADDR)
+		local lost = r > 0
+
+		if lost then
+			r = r - 2
+			if r < 0 then r = 0 end
+			memory.write_u16_le(RUPEE_ADDR, r)
+			gui.addmessage("OUCH! Lost 2 rupees")
+		else
+			gui.addmessage("OUCH!")
+		end
 	end
 end
 
-local function mainLoop()
+local function do_main()
 	print(
 			string.gsub(CONSOLE_SEP, "%-", "=")..
 			"Hover practice started\n"..
 			"Press L+R to terminate\n"
 		)
-	while RUNNING do
+	while running do
 		emu.frameadvance()
 		pad = joypad.get(1)
-		pollHover(pad.A)
+		analyze_hover(pad.A)
 
 		if (emu.framecount() % 20 == 0) then -- let's not overwork the emulator with memory checks
 			did_he_fall()
 		end
 
-		drawSpace.Refresh()
+		the_canvas.Refresh()
 
 		if (pad.L and pad.R) then -- L+R to quit
-			endPractice()
+			stop_running()
 		end
 	end
 end
 
-if verifyPracticeHack() then
-	initScript()
-	mainLoop()
+if verify_practice_rom() then
+	initialize()
+	do_main()
 else
 	print(
 			CONSOLE_SEP..
