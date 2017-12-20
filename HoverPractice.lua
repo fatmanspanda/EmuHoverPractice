@@ -1,9 +1,7 @@
 local __HOVER_VERSION = "1.0"
 
 -- TODO:
--- check if we're on a menu when starting
 -- disable OOB mode on start (variable ram address... add key to accepted rom table [make nested]?)
--- prevent going to trinexx? or just kill script when going to trinexx? look at room probably
 
 -- canvas
 local CANVAS_HEIGHT = 256
@@ -46,6 +44,7 @@ local RUPEE_ADDR = 0xF360
 -- default values
 local STATE_Y_POS = 0x164F
 local STATE_HP = 0x60 -- redefined later
+local ROOM_ID = 0xB4 -- outside trinexx
 
 -- meta stuff
 local CONSOLE_SEP = "----------------------------------\n"
@@ -105,34 +104,18 @@ local function go_to_tr()
 	gui.addmessage("This is your captain speaking:")
 	gui.addmessage("Please sit back while we navigate to our destination.")
 
-	-- menu cursor vram addresses and target values for trinexx preset
-	local menu_cursors = {
-			{ addr = 0x0648, target = 0 },
-			{ addr = 0x064A, target = 22 },
-			{ addr = 0x064C, target = 24 }
-		}
-
 	local function wait_some_frames(w)
 		for i = 0, w do emu.frameadvance() end
 	end
 
-	local c = 1 -- controller id
+	memory.write_u16_le(0x04E2, 0x0002) -- preset type
+	memory.write_u16_le(0x7900, 0x9B59) -- preset destination
+	memory.write_u16_le(0x7902, 0x0002) -- end of sram state
+	memory.writebyte(0x0010, 0x0C) -- main module index (custom menu)
+	memory.writebyte(0x0011, 0x05) -- submodule index (return from custom menu)
 
-	joypad.set({ R = true, Start = true }, c) -- open hack menu
-	wait_some_frames(40) -- wait for menu to open
-
-	for _, v in ipairs(menu_cursors) do -- for each menu
-		memory.writebyte(v.addr, v.target) -- set cursor location to desired option
-		wait_some_frames(3) -- just in case
-		joypad.set( { A = true }, c ) -- select next menu
-	end
-
-	joypad.set( { A = true }, c ) -- press A
-
-	gui.addmessage("Ready for take off...")
 	wait_some_frames(220) -- wait for area to load
-
-	memory.write_u16_be(RUPEE_ADDR, 0x0000) -- set rupees to 0
+	memory.write_u16_le(RUPEE_ADDR, 0x0000) -- set rupees to 0
 
 	gui.addmessage("This is your captain speaking:")
 	gui.addmessage("We have arrived safely.")
@@ -377,6 +360,17 @@ local function did_he_fall()
 	end -- hp check
 end -- did_he_fall
 
+--[=[
+-- stuff gets glitchy trying to move Link in other rooms
+-- so just kill the script if we leave the room before Trinexx
+--]=]
+local function validate_room()
+	if memory.readbyte(0x00A0) ~= ROOM_ID then
+		gui.addmessage("You have left the practice area.")
+		stop_running()
+	end
+end
+
 local function do_main()
 	while running do
 		emu.frameadvance()
@@ -385,6 +379,9 @@ local function do_main()
 
 		if emu.framecount() % 20 == 0 then -- let's not overwork the emulator with memory checks
 			did_he_fall()
+			if emu.framecount() % 60 == 0 then
+				validate_room()
+			end
 		end
 
 		the_canvas.Refresh()
