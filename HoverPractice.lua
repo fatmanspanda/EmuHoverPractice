@@ -49,7 +49,8 @@ local ROOM_ID = 0xB4 -- outside trinexx
 -- meta stuff
 local CONSOLE_SEP = "----------------------------------\n"
 local ACCEPTED_ROM_HASHES = {
-		"D487184ADE4C7FBE65C1F7657107763E912019D4"
+		"D487184ADE4C7FBE65C1F7657107763E912019D4",
+		"DE609C29B49B5904EEECFC3232422698664A9942"
 	}
 
 --[=[
@@ -108,12 +109,39 @@ local function go_to_tr()
 		for i = 0, w do emu.frameadvance() end
 	end
 
+	-- menu cursor vram addresses and target values for trinexx preset
+	local menu_cursors = {
+			{ addr = 0x0648, target = 0 },
+			{ addr = 0x064A, target = 22 },
+			{ addr = 0x064C, target = 24 }
+		}
+
+	local function wait_some_frames(w)
+		for i = 0, w do emu.frameadvance() end
+	end
+
+	local c = 1 -- controller id
+
+	joypad.set({ R = true, Start = true }, c) -- open hack menu
+	wait_some_frames(40) -- wait for menu to open
+
+	for _, v in ipairs(menu_cursors) do -- for each menu
+		memory.writebyte(v.addr, v.target) -- set cursor location to desired option
+		wait_some_frames(3) -- just in case
+		joypad.set( { A = true }, c ) -- select next menu
+	end
+
+	joypad.set( { A = true }, c ) -- press A
+
+	gui.addmessage("Ready for take off...")
+
+	--[=[
 	memory.write_u16_le(0x04E2, 0x0002) -- preset type
-	memory.write_u16_le(0x7900, 0x9B59) -- preset destination
+	memory.write_s16_le(0x7900, 0x9B59) -- preset destination
 	memory.write_u16_le(0x7902, 0x0002) -- end of sram state
 	memory.writebyte(0x0010, 0x0C) -- main module index (custom menu)
 	memory.writebyte(0x0011, 0x05) -- submodule index (return from custom menu)
-
+	--]=]
 	wait_some_frames(220) -- wait for area to load
 	memory.write_u16_le(RUPEE_ADDR, 0x0000) -- set rupees to 0
 
