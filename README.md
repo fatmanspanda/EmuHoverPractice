@@ -22,4 +22,5 @@ This script will only run on a recognized version of the [NMG practice hack](htt
    * If you haven't used this script before, or its location has changed since moving, you can find it in file explorer by pressing `Ctrl+O`.
    * If you have used this script before, you can find it in the `Recent Scripts` submenu under the `File` menu.
 1. On opening, the script will automatically run and take you to Turtle Rock.
+   * Do not press any buttons while the script navigates through the practice menu.
 1. The script can be toggled or stopped from the graphical menu.
