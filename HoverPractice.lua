@@ -49,8 +49,12 @@ local ROOM_ID = 0xB4 -- outside trinexx
 -- meta stuff
 local CONSOLE_SEP = "----------------------------------\n"
 local ACCEPTED_ROM_HASHES = {
-		"D487184ADE4C7FBE65C1F7657107763E912019D4",
-		"DE609C29B49B5904EEECFC3232422698664A9942"
+	V8 = {
+			"D487184ADE4C7FBE65C1F7657107763E912019D4"
+		},
+	V9 = {
+			"DE609C29B49B5904EEECFC3232422698664A9942"
+		}
 	}
 
 --[=[
@@ -68,8 +72,10 @@ local ballsy_streak = 0 -- your streak while over a pit
 local function verify_practice_rom()
 	local h = gameinfo.getromhash()
 
-	for _, v in ipairs(ACCEPTED_ROM_HASHES) do
-		if h == v then return true end
+	for k, l in ipairs(ACCEPTED_ROM_HASHES) do
+		for _, v in ipairs(l) do
+			if h == v then return true end
+		end
 	end
 
 	return false
@@ -437,6 +443,11 @@ else
 			"This script is not expected to work on beta versions of the hack.\n" ..
 			"Hash:\n" ..
 			gameinfo.getromhash() ..
-			CONSOLE_SEP
+			"\n"
+			"The following versions are expected to work:\n"
 		)
+	for k, _ in pairs(ACCEPTED_ROM_HASHES) do
+		print(k)
+	end
+	print(CONSOLE_SEP)
 end
