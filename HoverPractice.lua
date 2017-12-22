@@ -319,7 +319,7 @@ local function reset_streak()
 			if r > 999 then r = 999 end -- don't go above max rupees
 
 			memory.write_u16_le(RUPEE_ADDR, r)
-			gui.addmessage("Earned " .. earned .. " rupees")
+			gui.addmessage("Earned " .. earned .. " rupee" .. (earned ~= 1 and "s" or ""))
 		end -- ballsy check
 	end -- good streak check
 
