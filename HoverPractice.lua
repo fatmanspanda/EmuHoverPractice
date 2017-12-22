@@ -72,7 +72,7 @@ local ballsy_streak = 0 -- your streak while over a pit
 local function verify_practice_rom()
 	local h = gameinfo.getromhash()
 
-	for k, l in ipairs(ACCEPTED_ROM_HASHES) do
+	for k, l in pairs(ACCEPTED_ROM_HASHES) do
 		for _, v in ipairs(l) do
 			if h == v then return true end
 		end
@@ -287,7 +287,7 @@ end -- in_control
 
 -- checks if we've gone farther than the default position and are controllable to decide rupee eligibility
 local function is_eligible()
-	return memory.read_u16_le(Y_POS_ADDR) > STATE_Y_POS and in_control()
+	return memory.read_u16_le(Y_POS_ADDR) > STATE_Y_POS
 end -- is_eligible
 
 -- reset streaks to 0 and award rupees
@@ -305,7 +305,7 @@ local function reset_streak()
 				earned = earned + ballsy_streak / 9
 
 				if ballsy_streak > 160 then -- more bonus for a great hover
-					earned = earned + ballsy_streak / 8
+					earned = earned + ballsy_streak / 7
 
 					if ballsy_streak > 420 then -- more bonus for a god hover
 						earned = earned + ballsy_streak / 5
@@ -443,7 +443,7 @@ else
 			"This script is not expected to work on beta versions of the hack.\n" ..
 			"Hash:\n" ..
 			gameinfo.getromhash() ..
-			"\n"
+			"\n" ..
 			"The following versions are expected to work:\n"
 		)
 	for k, _ in pairs(ACCEPTED_ROM_HASHES) do
