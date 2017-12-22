@@ -42,8 +42,9 @@ local STATUS_ADDR = 0x005B
 local RUPEE_ADDR = 0xF360
 
 -- default values
-local STATE_Y_POS = 0x164F
 local STATE_HP = 0x60 -- redefined later
+local STATE_Y_POS = 0x164F
+local FELL_Y_POS = 0x161D
 local ROOM_ID = 0xB4 -- outside trinexx
 
 -- meta stuff
@@ -106,14 +107,15 @@ local function load_hover_position()
 	memory.writebyte(HP_ADDR, STATE_HP) -- reset HP
 end -- load_hover_position
 
+-- the tin
+local function wait_some_frames(w)
+	for i = 0, w do emu.frameadvance() end
+end -- wait_some_frames
+
 -- brings you to correct location by navigating the menu
 local function go_to_tr()
 	gui.addmessage("This is your captain speaking:")
 	gui.addmessage("Please sit back while we navigate to our destination.")
-
-	local function wait_some_frames(w)
-		for i = 0, w do emu.frameadvance() end
-	end
 
 	-- menu cursor vram addresses and target values for trinexx preset
 	local menu_cursors = {
@@ -122,11 +124,10 @@ local function go_to_tr()
 			{ addr = 0x064C, target = 24 }
 		}
 
-	local function wait_some_frames(w)
-		for i = 0, w do emu.frameadvance() end
-	end
-
 	local c = 1 -- controller id
+
+	joypad.set({Start = true }, c) -- open item menu, which can also close hack menu
+	wait_some_frames(15) -- wait for menu
 
 	joypad.set({ R = true, Start = true }, c) -- open hack menu
 	wait_some_frames(40) -- wait for menu to open
@@ -140,14 +141,6 @@ local function go_to_tr()
 	joypad.set( { A = true }, c ) -- press A
 
 	gui.addmessage("Ready for take off...")
-
-	--[=[
-	memory.write_u16_le(0x04E2, 0x0002) -- preset type
-	memory.write_s16_le(0x7900, 0x9B59) -- preset destination
-	memory.write_u16_le(0x7902, 0x0002) -- end of sram state
-	memory.writebyte(0x0010, 0x0C) -- main module index (custom menu)
-	memory.writebyte(0x0011, 0x05) -- submodule index (return from custom menu)
-	--]=]
 	wait_some_frames(220) -- wait for area to load
 	memory.write_u16_le(RUPEE_ADDR, 0x0000) -- set rupees to 0
 
@@ -378,8 +371,9 @@ end -- analyze_hover
 
 local function did_he_fall()
 	local hp = read_hp()
-	if hp ~= STATE_HP and in_control then
+	if hp ~= STATE_HP and in_control and memory.read_u16_le(Y_POS_ADDR) == FELL_Y_POS then
 		load_hover_position()
+
 		local r = memory.read_u16_le(RUPEE_ADDR)
 		local lost = r > 0
 
@@ -391,6 +385,8 @@ local function did_he_fall()
 		else
 			gui.addmessage("OUCH!")
 		end -- lost
+
+		ballsy_streak = 0 -- position is confused while falling
 	end -- hp check
 end -- did_he_fall
 
