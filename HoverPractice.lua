@@ -126,7 +126,7 @@ local function go_to_tr()
 
 	local c = 1 -- controller id
 
-	joypad.set({Start = true }, c) -- open item menu, which can also close hack menu
+	joypad.set({ Start = true }, c) -- open item menu, which can also close hack menu
 	wait_some_frames(15) -- wait for menu
 
 	joypad.set({ R = true, Start = true }, c) -- open hack menu
@@ -138,7 +138,7 @@ local function go_to_tr()
 		joypad.set( { A = true }, c ) -- select next menu
 	end
 
-	joypad.set( { A = true }, c ) -- press A
+	joypad.set({ A = true }, c ) -- press A
 
 	gui.addmessage("Ready for take off...")
 	wait_some_frames(220) -- wait for area to load
@@ -173,7 +173,7 @@ end -- end practice
 local function initialize()
 	running = true
 
-	memory.usememorydomain("WRAM") -- everything we need is in V(W)RAM
+	memory.usememorydomain("WRAM") -- everything we need is in WRAM
 	go_to_tr() -- we're off to see the wizard
 	STATE_HP = read_hp() -- load the HP you should have in the preset
 	load_hover_position()
