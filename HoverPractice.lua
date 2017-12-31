@@ -165,8 +165,8 @@ end -- stop_running
 local function end_practice()
 	the_canvas.DrawNew("native") -- effectively clears the canvas
 	the_canvas.DrawFinish()
-
 	client.SetClientExtraPadding(0, 0, 0, 0)
+
 	print(
 			"Hover Practice script terminated.\n" ..
 			CONSOLE_SEP_BIG
