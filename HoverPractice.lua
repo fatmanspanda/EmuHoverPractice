@@ -1,4 +1,4 @@
-local __HOVER_VERSION = "1.0"
+__HOVER_VERSION = "1.1"
 
 -- TODO:
 -- disable OOB mode on start (variable ram address... add key to accepted rom table [make nested]?)
@@ -6,7 +6,7 @@ local __HOVER_VERSION = "1.0"
 -- canvas
 local CANVAS_HEIGHT = 256
 local CANVAS_WIDTH = CANVAS_HEIGHT * 2
-local AXIS_HEIGHT = CANVAS_HEIGHT / 2
+local AXIS_HEIGHT = CANVAS_HEIGHT / 2 - 20
 
 -- bars
 local ZOOM = 2 -- resize of bar
@@ -16,7 +16,7 @@ local BAR_PAD = ZOOM * 1 -- distance between bars
 local MOST_BARS = 25 -- max number of bars drawn
 
 -- text
-local STATS_X = 50
+local STATS_X = 2
 local STATS_DIFF = 15
 local STATS_Y = CANVAS_HEIGHT / 2 + 15
 local STREAK_Y = STATS_Y + (STATS_DIFF * 2)
@@ -27,10 +27,9 @@ local GOOD_Y = STATS_Y + (STATS_DIFF * 4)
 local RED = 0xAAC80000
 local GREEN = 0xAA20C828
 local WHITE = 0xFFF8F8F8
-local BLACK = 0xFF000000
 
 -- hovering
-local MAX_HOLD = 30 -- frames A can be held for before failing
+local MAX_HOLD = 29 -- frames A can be held for before failing
 local MAX_RELEASE = 1 -- frames A can be released for before failing
 local GOOD_STREAK = 10 -- minimum length of a streak considered good
 local MAX_HOLD_HEIGHT = AXIS_HEIGHT - MAX_HOLD * ZOOM -- axis for max hold time
@@ -49,6 +48,8 @@ local ROOM_ID = 0xB4 -- outside trinexx
 
 -- meta stuff
 local CONSOLE_SEP = "----------------------------------\n"
+local CONSOLE_SEP_BIG = string.gsub(CONSOLE_SEP, "%-", "=")
+
 local ACCEPTED_ROM_HASHES = {
 	V8 = {
 			"D487184ADE4C7FBE65C1F7657107763E912019D4"
@@ -162,10 +163,13 @@ local function stop_running()
 end -- stop_running
 
 local function end_practice()
-	the_canvas.Dispose()
+	the_canvas.DrawNew("native") -- effectively clears the canvas
+	the_canvas.DrawFinish()
+
+	client.SetClientExtraPadding(0, 0, 0, 0)
 	print(
 			"Hover Practice script terminated.\n" ..
-			CONSOLE_SEP
+			CONSOLE_SEP_BIG
 		)
 	stop_running()
 end -- end practice
@@ -173,21 +177,18 @@ end -- end practice
 local function initialize()
 	running = true
 
+	client.SetClientExtraPadding(0, 0, CANVAS_WIDTH, 0)
+	the_canvas = gui
+
 	memory.usememorydomain("WRAM") -- everything we need is in WRAM
 	go_to_tr() -- we're off to see the wizard
 	STATE_HP = read_hp() -- load the HP you should have in the preset
 	load_hover_position()
 
-	the_canvas = gui.createcanvas(CANVAS_WIDTH, CANVAS_HEIGHT)
-	the_canvas.set_TopMost(true)
-	the_canvas.SetTitle("Hover practice v" .. __HOVER_VERSION)
-	the_canvas.add_FormClosing(stop_running)
-
 	event.onexit(end_practice)
 
 	print(
-			string.gsub(CONSOLE_SEP, "%-", "=") ..
-			"Hover practice started\n" ..
+			"Hover Practice started\n" ..
 			"Press L+R to terminate\n"
 		)
 end -- initialize
@@ -232,15 +233,19 @@ end -- shift_and_add
 -- draws the canvas
 --]=]
 local function draw_data()
-	the_canvas.Clear(BLACK)
-	the_canvas.DrawLine(0, AXIS_HEIGHT, CANVAS_WIDTH, AXIS_HEIGHT, WHITE)
-	the_canvas.DrawLine(0, MAX_HOLD_HEIGHT, CANVAS_WIDTH, MAX_HOLD_HEIGHT, RED)
+	the_canvas.DrawNew("native")
+	local offset = client.bufferwidth() * client.getwindowsize()
+	local text_y_offset = client.bufferwidth() > 1 and 30 or 0
+
+	the_canvas.drawLine(offset + 0, AXIS_HEIGHT, offset + CANVAS_WIDTH, AXIS_HEIGHT, WHITE) -- axis
+	the_canvas.drawLine(offset + 0, MAX_HOLD_HEIGHT, offset + CANVAS_WIDTH, MAX_HOLD_HEIGHT, RED) -- max hold threshold
+	the_canvas.drawLine(offset + 0, AXIS_HEIGHT + ZOOM * 2, offset + CANVAS_WIDTH, AXIS_HEIGHT + ZOOM * 2, RED) -- max release threshold
 
 	for i = 1, MOST_BARS do
 		local b_test = boots_list[i]
 
 		if b_test then
-			local x = CANVAS_WIDTH - (i * ( ZOOM * (BAR_THICC + BAR_PAD) ))
+			local x = offset + CANVAS_WIDTH - (i * ( ZOOM * (BAR_THICC + BAR_PAD) ))
 			local h_up = b_test.up()
 			local h_down = b_test.down()
 
@@ -251,8 +256,8 @@ local function draw_data()
 					h_up_draw = MAX_BAR
 				end
 
-				local color = (h_up < MAX_HOLD) and GREEN or RED
-				the_canvas.DrawRectangle(x, AXIS_HEIGHT - 1 - h_up_draw, BAR_THICC * ZOOM, h_up_draw, color, color)
+				local color = (h_up <= MAX_HOLD) and GREEN or RED
+				the_canvas.drawRectangle(x, AXIS_HEIGHT - 1 - h_up_draw, BAR_THICC * ZOOM, h_up_draw, color, color)
 			end -- hold bar
 
 			if h_down >= 0 then
@@ -263,14 +268,14 @@ local function draw_data()
 				end
 
 				local color = (h_down <= MAX_RELEASE) and GREEN or RED
-				the_canvas.DrawRectangle(x, AXIS_HEIGHT + 1, BAR_THICC * ZOOM, h_down_draw, color, color)
+				the_canvas.drawRectangle(x, AXIS_HEIGHT + 1, BAR_THICC * ZOOM, h_down_draw, color, color)
 			end -- release bar
 		end -- bar check
 	end -- bar loop
 
-	the_canvas.DrawText(STATS_X, STREAK_Y, "Streak: " .. current_streak, WHITE)
-	the_canvas.DrawText(STATS_X, BEST_Y, "Best: " .. best_streak, WHITE)
-	the_canvas.DrawText(STATS_X, GOOD_Y, "Previous good: " .. previous_good_streak, WHITE)
+	the_canvas.drawText(offset + STATS_X, text_y_offset + STREAK_Y, "Streak: " .. current_streak, WHITE)
+	the_canvas.drawText(offset + STATS_X, text_y_offset + BEST_Y, "Best: " .. best_streak, WHITE)
+	the_canvas.drawText(offset + STATS_X, text_y_offset + GOOD_Y, "Previous good: " .. previous_good_streak, WHITE)
 end -- draw_data
 
 -- checks to see if Link's status is set to default
@@ -414,7 +419,7 @@ local function do_main()
 			end
 		end
 
-		the_canvas.Refresh()
+		the_canvas.DrawFinish()
 
 		if pad.L and pad.R then -- L+R to quit
 			stop_running()
@@ -422,6 +427,11 @@ local function do_main()
 	end -- running loop
 end -- do_main
 
+print(
+		CONSOLE_SEP_BIG ..
+		"= Hover Practice " .. __HOVER_VERSION .. "\n" ..
+		CONSOLE_SEP_BIG
+	)
 if verify_practice_rom() then
 	initialize()
 	do_main()
@@ -445,5 +455,5 @@ else
 	for k, _ in pairs(ACCEPTED_ROM_HASHES) do
 		print(k)
 	end
-	print(CONSOLE_SEP)
+	print(CONSOLE_SEP_BIG)
 end
