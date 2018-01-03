@@ -1,7 +1,4 @@
-__HOVER_VERSION = "1.1"
-
--- TODO:
--- disable OOB mode on start (variable ram address... add key to accepted rom table [make nested]?)
+__HOVER_VERSION = "1.2"
 
 -- canvas
 local CANVAS_HEIGHT = 256
@@ -144,6 +141,7 @@ local function go_to_tr()
 	gui.addmessage("Ready for take off...")
 	wait_some_frames(220) -- wait for area to load
 	memory.write_u16_le(RUPEE_ADDR, 0x0000) -- set rupees to 0
+	memory.writebyte(0x037F, 0x00) -- turn off walk through walls
 
 	gui.addmessage("This is your captain speaking:")
 	gui.addmessage("We have arrived safely.")
