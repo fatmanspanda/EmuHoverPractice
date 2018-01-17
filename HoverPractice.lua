@@ -1,4 +1,5 @@
 __HOVER_VERSION = "1.2"
+-- ypos = (int16)(0x0020 & 0x1FFF) - (int16)0x061A;
 
 -- canvas
 local CANVAS_HEIGHT = 256
@@ -293,7 +294,7 @@ local function reset_streak()
 
 		if ballsy_streak > 0 then -- prizes
 			local r = memory.read_u16_le(RUPEE_ADDR)
-			local earned = 1 -- start with 1 rupee for a good hover, just to avoid having to check for plurals
+			local earned = 0
 			earned = earned + (ballsy_streak + 5) / 10 -- +5 to round up
 
 			-- nested because they are cumulative bonuses
@@ -407,6 +408,7 @@ end
 local function do_main()
 	while running do
 		emu.frameadvance()
+
 		pad = joypad.get(1)
 		analyze_hover(pad.A)
 
