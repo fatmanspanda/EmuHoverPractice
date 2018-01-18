@@ -16,14 +16,15 @@ local MOST_BARS = 25 -- max number of bars drawn
 -- text
 local STATS_X = 2
 local STATS_DIFF = 15
-local STATS_Y = CANVAS_HEIGHT / 2 + 15
+local STATS_Y = CANVAS_HEIGHT / 2 - 20
 local STREAK_Y = STATS_Y + (STATS_DIFF * 2)
 local BEST_Y = STATS_Y + (STATS_DIFF * 3)
 local GOOD_Y = STATS_Y + (STATS_DIFF * 4)
 
 -- colors
-local RED = 0xAAC80000
-local GREEN = 0xAA20C828
+local BAD = 0xAAC80000
+local GOOD = 0xAA20C828
+local PERFECT = 0xFF00F0F8
 local WHITE = 0xFFF8F8F8
 
 -- hovering
@@ -53,7 +54,8 @@ local ACCEPTED_ROM_HASHES = {
 			"D487184ADE4C7FBE65C1F7657107763E912019D4"
 		},
 	V9 = {
-			"DE609C29B49B5904EEECFC3232422698664A9942"
+			"DE609C29B49B5904EEECFC3232422698664A9942",
+			"B246AB3217FF6095166E1D074C91D640B767F713"
 		}
 	}
 
@@ -237,8 +239,8 @@ local function draw_data()
 	local text_y_offset = client.bufferwidth() > 1 and 30 or 0
 
 	the_canvas.drawLine(offset + 0, AXIS_HEIGHT, offset + CANVAS_WIDTH, AXIS_HEIGHT, WHITE) -- axis
-	the_canvas.drawLine(offset + 0, MAX_HOLD_HEIGHT, offset + CANVAS_WIDTH, MAX_HOLD_HEIGHT, RED) -- max hold threshold
-	the_canvas.drawLine(offset + 0, AXIS_HEIGHT + ZOOM * 2, offset + CANVAS_WIDTH, AXIS_HEIGHT + ZOOM * 2, RED) -- max release threshold
+	the_canvas.drawLine(offset + 0, MAX_HOLD_HEIGHT, offset + CANVAS_WIDTH, MAX_HOLD_HEIGHT, BAD) -- max hold threshold
+	the_canvas.drawLine(offset + 0, AXIS_HEIGHT + ZOOM * 2, offset + CANVAS_WIDTH, AXIS_HEIGHT + ZOOM * 2, BAD) -- max release threshold
 
 	for i = 1, MOST_BARS do
 		local b_test = boots_list[i]
@@ -255,7 +257,7 @@ local function draw_data()
 					h_up_draw = MAX_BAR
 				end
 
-				local color = (h_up <= MAX_HOLD) and GREEN or RED
+				local color = (h_up <= MAX_HOLD) and (h_up == 1) and PERFECT or GOOD or BAD
 				the_canvas.drawRectangle(x, AXIS_HEIGHT - 1 - h_up_draw, BAR_THICC * ZOOM, h_up_draw, color, color)
 			end -- hold bar
 
@@ -266,7 +268,7 @@ local function draw_data()
 					h_down_draw = MAX_BAR
 				end
 
-				local color = (h_down <= MAX_RELEASE) and GREEN or RED
+				local color = (h_down <= MAX_RELEASE) and GOOD or BAD
 				the_canvas.drawRectangle(x, AXIS_HEIGHT + 1, BAR_THICC * ZOOM, h_down_draw, color, color)
 			end -- release bar
 		end -- bar check

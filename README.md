@@ -5,12 +5,12 @@ This script will only run on a recognized version of the [NMG practice hack](htt
 
 * The final area before Trinexx is an ideal place to practice hovering, as it contains a large gap to attempt crossing.
 * If you fall (or really, take any damage) while this script is running, you will return to your original position.
-* The script will also create a new window that contains a graphical analysis of your hovering technique.
+* The script will also create an area on client that contains a graphical analysis of your hovering technique.
    * The bars above the axis indicate how long you held the `A` button.
    * The bars below the axis indicate how long you released the `A` button.
    * If either action lasted longer than what is allowed for a successful hover, its bar will turn from green to red.
 * As a fun bonus, you will earn rupees for successful hover streaks, starting at a rate of 1:10, with cumulative bonuses for longer streaks. You will lose 2 rupees for every time you fall. You are only eligible to gain rupees if you are hovering across a gap.
-* To terminate this script without navigating to the Lua console, press `L+R` together in game. Closing the analysis window will also stop the script.
+* To terminate this script without navigating to the Lua console, press `L+R` together in game.
 
 ## Running Lua scripts
 1. Download the latest source file from [the releases page](https://github.com/fatmanspanda/EmuHoverPractice/releases).
@@ -24,3 +24,4 @@ This script will only run on a recognized version of the [NMG practice hack](htt
 1. On opening, the script will automatically run and take you to Turtle Rock.
    * Do not press any buttons while the script navigates through the practice menu.
 1. The script can be toggled or stopped from the graphical menu.
+1. Use a window size of `x2` or `x3` to avoid lag.
