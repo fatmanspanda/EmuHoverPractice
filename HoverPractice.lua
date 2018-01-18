@@ -1,5 +1,4 @@
-__HOVER_VERSION = "1.2"
--- ypos = (int16)(0x0020 & 0x1FFF) - (int16)0x061A;
+__HOVER_VERSION = "1.3"
 
 -- canvas
 local CANVAS_HEIGHT = 256
@@ -32,6 +31,8 @@ local MAX_HOLD = 29 -- frames A can be held for before failing
 local MAX_RELEASE = 1 -- frames A can be released for before failing
 local GOOD_STREAK = 10 -- minimum length of a streak considered good
 local MAX_HOLD_HEIGHT = AXIS_HEIGHT - MAX_HOLD * ZOOM -- axis for max hold time
+local DEFAULT_CAMERA = 0x78
+local BEST_OFFSET = 22
 
 -- checks
 local HP_ADDR = 0xF36D
@@ -69,6 +70,8 @@ local current_streak = 0
 local previous_good_streak = 0
 local best_streak = 0
 local ballsy_streak = 0 -- your streak while over a pit
+local best_diff = 0
+local best_distance = bit.band(STATE_Y_POS, 0x01FF) + BEST_OFFSET
 
 -- compare hash to known practice hack hashes
 local function verify_practice_rom()
@@ -242,6 +245,11 @@ local function draw_data()
 	the_canvas.drawLine(offset + 0, MAX_HOLD_HEIGHT, offset + CANVAS_WIDTH, MAX_HOLD_HEIGHT, BAD) -- max hold threshold
 	the_canvas.drawLine(offset + 0, AXIS_HEIGHT + ZOOM * 2, offset + CANVAS_WIDTH, AXIS_HEIGHT + ZOOM * 2, BAD) -- max release threshold
 
+	local camera_position = memory.read_u16_le(0x0618)
+	local best_marker = (DEFAULT_CAMERA + best_distance - camera_position) * client.getwindowsize()
+	the_canvas.drawText(0, best_marker - 16, best_diff, PERFECT)
+	the_canvas.drawLine(0, best_marker, offset, best_marker, PERFECT) -- best distance
+
 	for i = 1, MOST_BARS do
 		local b_test = boots_list[i]
 
@@ -286,7 +294,18 @@ end -- in_control
 
 -- checks if we've gone farther than the default position and are controllable to decide rupee eligibility
 local function is_eligible()
-	return memory.read_u16_le(Y_POS_ADDR) > STATE_Y_POS
+	local ret = false
+	local y_pos = memory.read_u16_le(Y_POS_ADDR)
+	local diff = y_pos - STATE_Y_POS
+	if diff > 0 then
+		ret = true
+		if diff > best_diff then
+			best_diff = diff
+			best_distance = bit.band(y_pos, 0x01FF) + BEST_OFFSET
+		end
+	end
+
+	return ret
 end -- is_eligible
 
 -- reset streaks to 0 and award rupees
