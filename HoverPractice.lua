@@ -22,17 +22,21 @@ local GOOD_Y = STATS_Y + (STATS_DIFF * 4)
 
 -- colors
 local BAD = 0xAAC80000
-local GOOD = 0xAA20C828
-local PERFECT = 0xFF00F0F8
+local GOOD = 0xAA00F0F8
+local PERFECT = 0xFFF0F000
 local WHITE = 0xFFF8F8F8
 
 -- hovering
 local MAX_HOLD = 29 -- frames A can be held for before failing
 local MAX_RELEASE = 1 -- frames A can be released for before failing
 local GOOD_STREAK = 10 -- minimum length of a streak considered good
-local MAX_HOLD_HEIGHT = AXIS_HEIGHT - MAX_HOLD * ZOOM -- axis for max hold time
+local MAX_HOLD_HEIGHT = AXIS_HEIGHT - MAX_HOLD * ZOOM - 1 -- axis for max hold time
 local DEFAULT_CAMERA = 0x78
 local BEST_OFFSET = 22
+
+-- prizes
+local LOST_RUPEES = 10
+local LOST_MESSAGE = string.format("OUCH! Lost %s rupees", LOST_RUPEES)
 
 -- checks
 local HP_ADDR = 0xF36D
@@ -121,7 +125,11 @@ local function go_to_tr()
 	gui.addmessage("This is your captain speaking:")
 	gui.addmessage("Please sit back while we navigate to our destination.")
 
-	-- menu cursor vram addresses and target values for trinexx preset
+	-- unpause and super speed
+	client.unpause()
+	client.speedmode(1000)
+	
+	-- menu cursor wram addresses and target values for trinexx preset
 	local menu_cursors = {
 			{ addr = 0x0648, target = 0 },
 			{ addr = 0x064A, target = 22 },
@@ -145,10 +153,13 @@ local function go_to_tr()
 	joypad.set({ A = true }, c ) -- press A
 
 	gui.addmessage("Ready for take off...")
-	wait_some_frames(220) -- wait for area to load
+	wait_some_frames(200) -- wait for area to load
 	memory.write_u16_le(RUPEE_ADDR, 0x0000) -- set rupees to 0
+	memory.writebyte(0xF36E, 0x00) -- drain magic
 	memory.writebyte(0x037F, 0x00) -- turn off walk through walls
 
+	wait_some_frames(80) -- rupee drain
+	client.speedmode(100)
 	gui.addmessage("This is your captain speaking:")
 	gui.addmessage("We have arrived safely.")
 	gui.addmessage("You may assume control.")
@@ -240,6 +251,7 @@ local function draw_data()
 	the_canvas.DrawNew("native")
 	local offset = client.bufferwidth() * client.getwindowsize()
 	local text_y_offset = client.bufferwidth() > 1 and 30 or 0
+	local max_height = client.bufferheight() * client.getwindowsize() - 2
 
 	the_canvas.drawLine(offset + 0, AXIS_HEIGHT, offset + CANVAS_WIDTH, AXIS_HEIGHT, WHITE) -- axis
 	the_canvas.drawLine(offset + 0, MAX_HOLD_HEIGHT, offset + CANVAS_WIDTH, MAX_HOLD_HEIGHT, BAD) -- max hold threshold
@@ -247,7 +259,11 @@ local function draw_data()
 
 	local camera_position = memory.read_u16_le(0x0618)
 	local best_marker = (DEFAULT_CAMERA + best_distance - camera_position) * client.getwindowsize()
-	the_canvas.drawText(0, best_marker - 16, best_diff, PERFECT)
+	if best_marker > max_height then
+		best_marker = max_height - 2
+	end
+
+	the_canvas.drawText(0, best_marker - 16, "BEST: " .. best_diff, PERFECT)
 	the_canvas.drawLine(0, best_marker, offset, best_marker, PERFECT) -- best distance
 
 	for i = 1, MOST_BARS do
@@ -265,7 +281,7 @@ local function draw_data()
 					h_up_draw = MAX_BAR
 				end
 
-				local color = (h_up <= MAX_HOLD) and (h_up == 1) and PERFECT or GOOD or BAD
+				local color = (h_up <= MAX_HOLD) and ((h_up == 1) and PERFECT or GOOD) or BAD
 				the_canvas.drawRectangle(x, AXIS_HEIGHT - 1 - h_up_draw, BAR_THICC * ZOOM, h_up_draw, color, color)
 			end -- hold bar
 
@@ -316,20 +332,8 @@ local function reset_streak()
 		if ballsy_streak > 0 then -- prizes
 			local r = memory.read_u16_le(RUPEE_ADDR)
 			local earned = 0
-			earned = earned + (ballsy_streak + 5) / 10 -- +5 to round up
+			earned = earned + ballsy_streak / 2
 
-			-- nested because they are cumulative bonuses
-			if ballsy_streak > 40 then -- more bonus for a really good hover
-				earned = earned + ballsy_streak / 9
-
-				if ballsy_streak > 160 then -- more bonus for a great hover
-					earned = earned + ballsy_streak / 7
-
-					if ballsy_streak > 420 then -- more bonus for a god hover
-						earned = earned + ballsy_streak / 5
-					end
-				end
-			end -- big boy streak tests
 
 			earned = math.floor(earned) -- kill decimals
 
@@ -403,10 +407,10 @@ local function did_he_fall()
 		local lost = r > 0
 
 		if lost then
-			r = r - 2
+			r = r - LOST_RUPEES
 			if r < 0 then r = 0 end
 			memory.write_u16_le(RUPEE_ADDR, r)
-			gui.addmessage("OUCH! Lost 2 rupees")
+			gui.addmessage(LOST_MESSAGE)
 		else
 			gui.addmessage("OUCH!")
 		end -- lost
