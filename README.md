@@ -10,7 +10,7 @@ This script will only run on a recognized version of the [NMG practice hack](htt
    * The bars below the axis indicate how long you released the `A` button.
    * If either action lasted longer than what is allowed for a successful hover, its bar will turn from green to red.
 * A line will be drawn and labelled to show your farthest hover each session.
-* As a fun bonus, you will earn rupees for successful hover streaks, starting at a rate of 1:10, with cumulative bonuses for longer streaks. You will lose 2 rupees for every time you fall. You are only eligible to gain rupees if you are hovering across a gap.
+* As a fun bonus, you will earn rupees for successful hover streaks. You will lose rupees for every time you fall. You are only eligible to gain rupees if you are hovering across a gap.
 * To terminate this script without navigating to the Lua console, press `L+R` together in game.
 
 ## Running Lua scripts
@@ -24,4 +24,4 @@ This script will only run on a recognized version of the [NMG practice hack](htt
    * If you have used this script before, you can find it in the `Recent Scripts` submenu under the `File` menu.
 1. On opening, the script will automatically run and take you to Turtle Rock.
    * Do not press any buttons while the script navigates through the practice menu.
-1. Use a window size of `x2` or `x3` to avoid lag.
+1. Use a window size of `x3` or smaller to avoid lag.
