@@ -1,4 +1,4 @@
-__HOVER_VERSION = "1.4"
+__HOVER_VERSION = "1.5"
 
 -- canvas
 local CANVAS_HEIGHT = 256
