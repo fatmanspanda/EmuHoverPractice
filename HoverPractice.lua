@@ -31,7 +31,6 @@ local MAX_HOLD = 29 -- frames A can be held for before failing
 local MAX_RELEASE = 1 -- frames A can be released for before failing
 local GOOD_STREAK = 10 -- minimum length of a streak considered good
 local MAX_HOLD_HEIGHT = AXIS_HEIGHT - MAX_HOLD * ZOOM - 1 -- axis for max hold time
-local DEFAULT_CAMERA = 0x78
 local BEST_OFFSET = 22
 
 -- prizes
@@ -48,20 +47,29 @@ local RUPEE_ADDR = 0xF360
 local STATE_HP = 0x60 -- redefined later
 local STATE_Y_POS = 0x164F
 local FELL_Y_POS = 0x161D
+local RELOAD_THRESHOLD = FELL_Y_POS + 20
+local DEFAULT_CAMERA = 0x78
 local ROOM_ID = 0xB4 -- outside trinexx
 
 -- meta stuff
-local CONSOLE_SEP = "----------------------------------\n"
-local CONSOLE_SEP_BIG = string.gsub(CONSOLE_SEP, "%-", "=")
+local HR_LENGTH = 35;
+local CONSOLE_SEP = string.rep("-", HR_LENGTH) .. "\n"
+local CONSOLE_SEP_BIG = string.rep("=", HR_LENGTH) .. "\n"
 
 local ACCEPTED_ROM_HASHES = {
 	V8 = {
-			"D487184ADE4C7FBE65C1F7657107763E912019D4"
+			"D487184ADE4C7FBE65C1F7657107763E912019D4",
 		},
 	V9 = {
 			"DE609C29B49B5904EEECFC3232422698664A9942",
-			"B246AB3217FF6095166E1D074C91D640B767F713"
-		}
+			"B246AB3217FF6095166E1D074C91D640B767F713",
+			"65F08E3D942C33203CED2CBE36A74BEF8E72AAF6",
+			"45F097A40AD477253D15E6EA3DB21EC62BE910F8",
+		},
+	V9_SD2SNES = {
+			"35EB77FF5E78BBF29D560443BE77660A2D6D5CA9",
+			"4CBC01D01D701D9399849A29EB4AA34EE99324BE",
+		},
 	}
 
 --[=[
@@ -74,8 +82,8 @@ local current_streak = 0
 local previous_good_streak = 0
 local best_streak = 0
 local ballsy_streak = 0 -- your streak while over a pit
-local best_diff = 0
-local best_distance = bit.band(STATE_Y_POS, 0x01FF) + BEST_OFFSET
+local best_diff = 25
+local best_distance = bit.band(STATE_Y_POS, 0x01FF) + BEST_OFFSET + best_diff
 
 -- compare hash to known practice hack hashes
 local function verify_practice_rom()
@@ -111,7 +119,6 @@ local function load_hover_position()
 	memory.writebyte(0x005D, 0x00)
 	memory.writebyte(0x005E, 0x00)
 
-	memory.writebyte(0x0372, 0x00) -- stop slashing
 	memory.writebyte(HP_ADDR, STATE_HP) -- reset HP
 end -- load_hover_position
 
@@ -259,12 +266,15 @@ local function draw_data()
 
 	local camera_position = memory.read_u16_le(0x0618)
 	local best_marker = (DEFAULT_CAMERA + best_distance - camera_position) * client.getwindowsize()
+	local best_color = PERFECT
+
 	if best_marker > max_height then
 		best_marker = max_height - 2
+		best_color = GOOD
 	end
 
-	the_canvas.drawText(0, best_marker - 16, "BEST: " .. best_diff, PERFECT)
-	the_canvas.drawLine(0, best_marker, offset, best_marker, PERFECT) -- best distance
+	the_canvas.drawText(0, best_marker - 16, "BEST: " .. best_diff, best_color)
+	the_canvas.drawLine(0, best_marker, offset, best_marker, best_color) -- best distance
 
 	for i = 1, MOST_BARS do
 		local b_test = boots_list[i]
@@ -305,7 +315,8 @@ end -- draw_data
 
 -- checks to see if Link's status is set to default
 local function in_control()
-	return memory.readbyte(STATUS_ADDR) == 0x00
+	local falling = memory.readbyte(STATUS_ADDR)
+	return falling == 0x00 or falling == 0x01
 end -- in_control
 
 -- checks if we've gone farther than the default position and are controllable to decide rupee eligibility
@@ -394,13 +405,11 @@ local function analyze_hover(held)
 	end -- held / b_test check
 
 	a_held = held
-
-	draw_data()
 end -- analyze_hover
 
 local function did_he_fall()
 	local hp = read_hp()
-	if hp ~= STATE_HP and in_control and memory.read_u16_le(Y_POS_ADDR) == FELL_Y_POS then
+	if hp ~= STATE_HP and in_control() and memory.read_u16_le(Y_POS_ADDR) <= RELOAD_THRESHOLD then
 		load_hover_position()
 
 		local r = memory.read_u16_le(RUPEE_ADDR)
@@ -436,6 +445,7 @@ local function do_main()
 
 		pad = joypad.get(1)
 		analyze_hover(pad.A)
+		draw_data()
 
 		if emu.framecount() % 20 == 0 then -- let's not overwork the emulator with memory checks
 			did_he_fall()
