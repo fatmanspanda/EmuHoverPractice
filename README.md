@@ -11,7 +11,12 @@ This script will only run on a recognized version of the [NMG practice hack](htt
    * If either action lasted longer than what is allowed for a successful hover, its bar will turn from green to red.
 * A line will be drawn and labelled to show your farthest hover each session.
 * As a fun bonus, you will earn rupees for successful hover streaks. You will lose rupees for every time you fall. You are only eligible to gain rupees if you are hovering across a gap.
-* To terminate this script without navigating to the Lua console, press `L+R` together in game.
+
+| Input | Action |
+| ----- | ------ |
+| `L`  | Clear graph |
+| `R`  | Toggle rupee rewarding |
+| `L` + `R` | Quit |
 
 ## Running Lua scripts
 1. Download the latest source file from [the releases page](https://github.com/fatmanspanda/EmuHoverPractice/releases).

@@ -85,6 +85,11 @@ local ballsy_streak = 0 -- your streak while over a pit
 local best_diff = 25
 local best_distance = bit.band(STATE_Y_POS, 0x01FF) + BEST_OFFSET + best_diff
 
+-- meta controls
+local win_rupees = true
+local r_was_held = false
+local l_was_held = false
+
 -- compare hash to known practice hack hashes
 local function verify_practice_rom()
 	local h = gameinfo.getromhash()
@@ -340,7 +345,7 @@ local function reset_streak()
 	if current_streak >= GOOD_STREAK then
 		previous_good_streak = current_streak
 
-		if ballsy_streak > 0 then -- prizes
+		if win_rupees and ballsy_streak > 0 then -- prizes
 			local r = memory.read_u16_le(RUPEE_ADDR)
 			local earned = 0
 			earned = earned + ballsy_streak / 2
@@ -415,7 +420,7 @@ local function did_he_fall()
 		local r = memory.read_u16_le(RUPEE_ADDR)
 		local lost = r > 0
 
-		if lost then
+		if win_rupees and lost then
 			r = r - LOST_RUPEES
 			if r < 0 then r = 0 end
 			memory.write_u16_le(RUPEE_ADDR, r)
@@ -458,6 +463,25 @@ local function do_main()
 
 		if pad.L and pad.R then -- L+R to quit
 			stop_running()
+		elseif pad.L then -- L alone to clear graph
+			r_was_held = false
+			if not l_was_held then
+				l_was_held = true
+				for i = 1, MOST_BARS do
+					boots_list[i] = nil
+				end
+				gui.addmessage("Cleared data")
+			end
+		elseif pad.R then -- R for rupee prize toggle
+			l_was_held = false
+			if not r_was_held then
+				r_was_held = true
+				win_rupees = not win_rupees
+				gui.addmessage("Rupee prizes turned " .. (win_rupees and "ON" or "OFF"))
+			end
+		else
+			l_was_held = false
+			r_was_held = false
 		end
 	end -- running loop
 end -- do_main
