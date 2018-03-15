@@ -1,4 +1,4 @@
-Emulator Lua script for BizHawk to practice hovering. Based off of [Hyphen-ated's tool of the same purpose](https://github.com/Hyphen-ated/HoverPractice); with help from [raekuul](https://github.com/raekuul), myramong, and pinkus.
+Emulator Lua script for BizHawk to practice hovering. Based off of [Hyphen-ated's tool of the same purpose](https://github.com/Hyphen-ated/HoverPractice).
 
 ## Using this tool
 This script will only run on a recognized version of the [NMG practice hack](https://milde.no/lttp/). On starting, it will attempt to use the practice menu to teleport to Turtle Rock.
